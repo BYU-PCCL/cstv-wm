@@ -1,0 +1,5 @@
+.idea/
+__pycache__/
+
+# temp dir created to debug Chrome
+.config/
