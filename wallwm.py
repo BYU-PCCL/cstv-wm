@@ -32,7 +32,7 @@ def main_loop(uuid):
             width = window_geometry.width
             height = window_geometry.height
 
-            # TODO: Unconditionally raise info window here
+            # TODO: Raise placard window here IF ev.window != placard window
             #  raise_window()
 
             if (
