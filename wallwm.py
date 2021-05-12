@@ -1,8 +1,23 @@
 from Xlib.display import Display
 from Xlib import X, error
+import argparse
 
 
-def main_loop():
+def fullscreen_window(display, window):
+    screen = display.screen()
+    try:
+        window.configure(
+            x=0,
+            y=0,
+            width=screen.width_in_pixels,
+            height=screen.height_in_pixels,
+        )
+        display.sync()
+    except error.BadWindow:
+        pass
+
+
+def main_loop(uuid):
     dpy = Display()
     default_screen = dpy.screen()
     default_screen.root.change_attributes(event_mask=X.SubstructureNotifyMask)
@@ -16,26 +31,26 @@ def main_loop():
             y = window_geometry.y
             width = window_geometry.width
             height = window_geometry.height
-            target_width = default_screen.width_in_pixels
-            target_height = default_screen.height_in_pixels
 
-            print(width)
-            print(height)
+            # TODO: Unconditionally raise info window here
+            #  raise_window()
 
-            if x == y == 0 and width == target_width and height == target_height:
+            if (
+                x == y == 0
+                and width == default_screen.width_in_pixels
+                and height == default_screen.height_in_pixels
+            ):
                 continue
 
-            try:
-                ev.window.configure(
-                    x=0,
-                    y=0,
-                    width=default_screen.width_in_pixels,
-                    height=default_screen.height_in_pixels,
-                )
-                dpy.sync()
-            except error.BadWindow:
-                pass
+            fullscreen_window(dpy, ev.window)
+        elif ev.type == X.CreateNotify:
+            fullscreen_window(dpy, ev.window)
 
 
 if __name__ == "__main__":
-    main_loop()
+    # TODO: Run this as a systemd service and automatically restart when it goes down,
+    #  logging exceptions to watchdog
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--uuid')
+    args = parser.parse_args()
+    main_loop(uuid=args.uuid)
