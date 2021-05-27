@@ -9,58 +9,102 @@ from Xlib import X, error
 from Xlib.error import XError
 from Xlib.xobject.drawable import Window
 
+import os
+
 dpy = Display()
 NET_ACTIVE_WINDOW = dpy.intern_atom("_NET_ACTIVE_WINDOW")
 NET_WM_NAME = dpy.intern_atom("_NET_WM_NAME")  # UTF-8
 WM_NAME = dpy.intern_atom("WM_NAME")  # Legacy encoding
 
 
-def fullscreen_window(display, window):
-    screen = display.screen()
+def scale_window(display, window, x, y, width, height):
     try:
         window.configure(
-            x=0,
-            y=0,
-            width=screen.width_in_pixels,
-            height=screen.height_in_pixels,
+            x=x,
+            y=y,
+            width=width,
+            height=height,
         )
         display.sync()
     except error.BadWindow:
         pass
 
 
+def fullscreen_window(display, window):
+    screen = display.screen()
+    scale_window(display, window, 0, 0, screen.width_in_pixels, screen.height_in_pixels)
+
+
+def display_layout_env():
+    if "CSTV_DISPLAY_LAYOUT" not in os.environ:
+        return None
+
+    return os.environ["CSTV_DISPLAY_LAYOUT"].lower()
+
+
+def layout_placard_dimensions(screen, display_layout):
+    default_value = (0, 0, int(screen.width_in_pixels * 0.20), screen.height_in_pixels)
+    if display_layout is None or display_layout == "fullscreen":
+        return default_value
+
+    if display_layout == "fit4k":
+        return 0, 0, 715, 1758
+
+    if display_layout == "production":
+        return 0, 0, 978, screen.height_in_pixels
+
+    return default_value
+
+
+def layout_viewport_dimensions(screen, display_layout):
+    default_value = (0, 0, screen.width_in_pixels, screen.height_in_pixels)
+    if display_layout is None or display_layout == "fullscreen":
+        return default_value
+
+    if display_layout == "fit4k":
+        return 715, 0, 3125, 1758
+
+    if display_layout == "fit4k":
+        return 978, 0, 3125, screen.height_in_pixels
+
+    return default_value
+
+
 def main_loop():
     default_screen = dpy.screen()
-    default_screen.root.change_attributes(
-        event_mask=X.SubstructureNotifyMask
-    )
+    default_screen.root.change_attributes(event_mask=X.SubstructureNotifyMask)
+
+    display_layout = display_layout_env()
+    placard_dimensions = layout_placard_dimensions(default_screen, display_layout)
+    viewport_dimensions = layout_viewport_dimensions(default_screen, display_layout)
 
     placard_window = None
     while True:
         ev = dpy.next_event()
 
+        is_placard = False
+        if hasattr(ev, "window"):
+            window_name = get_window_name(ev.window)
+            is_placard = window_name and window_name == "cstv-placard"
+            if is_placard:
+                placard_window = ev.window
+                print(f"Setting window with name {window_name} as placard window")
+
         if ev.type == X.ConfigureNotify:
+            # TODO: Find a less hacky solution than this
+            if placard_window:
+                if not is_placard:
+                    placard_window.raise_window()
+                else:
+                    scale_window(dpy, placard_window, *placard_dimensions)
+                    continue
+
             window_geometry = ev.window.get_geometry()
 
             x = window_geometry.x
             y = window_geometry.y
             width = window_geometry.width
             height = window_geometry.height
-
-            window_name = get_window_name(ev.window)
-
-            # TODO: Find a less hacky solution than this
-            if window_name and window_name == "cstv-placard":
-                placard_window = ev.window
-                print(f"Setting window with name {window_name} as placard window")
-
-            # print(get_window_name(ev.window))
-
-            # TODO: Raise placard window here IF ev.window != placard window
-            print(placard_window)
-            if placard_window and ev.window.id != placard_window.id:
-                print("raising placard window")
-                placard_window.raise_window()
 
             if (
                 x == y == 0
@@ -69,11 +113,9 @@ def main_loop():
             ):
                 continue
 
-            fullscreen_window(dpy, ev.window)
+            scale_window(dpy, ev.window, *viewport_dimensions)
         elif ev.type == X.CreateNotify:
-
-            # print(get_window_name(ev.window))
-            fullscreen_window(dpy, ev.window)
+            scale_window(dpy, ev.window, *viewport_dimensions)
 
 
 @contextmanager
