@@ -146,15 +146,16 @@ def _get_window_name_inner(win_obj):
                     win_name = win_name.decode("latin1", "replace")
                 return win_name
             else:
-                title = "<unnamed window>"
-
-    return window_name
+                return "<unnamed window>"
 
 
 def get_window_name(window: Window):
     with window_obj(window.id) as wobj:
         if wobj:
-            win_title = _get_window_name_inner(wobj)
+            try:
+                win_title = _get_window_name_inner(wobj)
+            except error.BadWindow:
+                return "<bad window>"
 
     return win_title
 
