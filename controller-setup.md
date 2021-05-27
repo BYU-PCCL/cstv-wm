@@ -5,3 +5,7 @@
   - Clear cache with `fc-cache -f -v`
 - Create a `logs` folder in home
 - Edit .xinitrc to run all of the things
+
+## Asides
+
+If you want to change the background color, you'll need to use not xsetroot, but https://github.com/himdel/hsetroot AFAIK. Starting picom makes the background gray, which might not be an issue if crossfading between applications is handled well.
