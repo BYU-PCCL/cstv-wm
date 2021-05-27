@@ -99,7 +99,10 @@ def main_loop():
                     scale_window(dpy, placard_window, *placard_dimensions)
                     continue
 
-            window_geometry = ev.window.get_geometry()
+            try:
+                window_geometry = ev.window.get_geometry()
+            except error.BadDrawable:
+                continue
 
             x = window_geometry.x
             y = window_geometry.y
