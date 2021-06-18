@@ -5,6 +5,7 @@
   - Clear cache with `fc-cache -f -v`
 - Create a `logs` folder in home
 - Edit .xinitrc to run all of the things
+- Build hsetroot (command to run will be `DISPLAY=:0 hsetroot -solid black`)
 
 ## Asides
 
