@@ -34,6 +34,14 @@ ros2 run multi_cloud cloud_publisher --ros-args -p 'point_cloud_topics:=["/cam_1
 ros2 run cloud_flattener slice_publisher --ros-args -p 'cloud_topic:="/multi_cloud"'
 ```
 
+## RViz (for debugging)
+
+```sh
+rviz2 -f world
+```
+
+`-f world` tells RViz to set `world` as the root tf2 frame, which we do by convention.
+
 ## TODO:
 
 - Add example for initializing and adjusting transforms
