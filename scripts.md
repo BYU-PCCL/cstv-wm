@@ -1,5 +1,10 @@
 # Script example usage
 
+For all ROS 2 scripts, you will need to source ROS's generated setup script. Relative to the root of the ROS workspace.
+```
+source install/setup.bash
+```
+
 
 ## Transform publishers
 
