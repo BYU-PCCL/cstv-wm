@@ -9,4 +9,7 @@
 
 ## Asides
 
+// LIBREALSENSE BUILD LINE: `cmake ../ -DCMAKE_BUILD_TYPE=Release -DBUILD_WITH_OPENMP=true -DFORCE_RSUSB_BACKEND=true -DBUILD_PYTHON_BINDINGS=true -DOpenGL_GL_PREFERENCE=GLVND`
+LIBREALSENSE BUILD LINE: `cmake ../ -DCMAKE_BUILD_TYPE=Release -DBUILD_PYTHON_BINDINGS=true -DOpenGL_GL_PREFERENCE=GLVND`
+
 If you want to change the background color, you'll need to use not xsetroot, but https://github.com/himdel/hsetroot AFAIK. Starting picom makes the background gray, which might not be an issue if crossfading between applications is handled well.
