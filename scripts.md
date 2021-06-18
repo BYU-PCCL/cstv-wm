@@ -45,3 +45,5 @@ rviz2 -f world
 ## TODO:
 
 - Add example for initializing and adjusting transforms
+- Add full setup (maybe somewhere else)
+  - Setting up a ROS workspace, etc.
