@@ -64,7 +64,7 @@ def layout_viewport_dimensions(screen, display_layout):
     if display_layout == "fit4k":
         return 715, 0, 3125, 1758
 
-    if display_layout == "fit4k":
+    if display_layout == "production":
         return 978, 0, 3125, screen.height_in_pixels
 
     return default_value
