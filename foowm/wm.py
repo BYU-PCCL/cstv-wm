@@ -365,7 +365,7 @@ class FootronWindowManager:
             if self._debug_logging:
                 logger.debug(f"Found size hints on new window {hex(window.id)}:")
                 debug_log_size_hints(logger.debug, wm_normal_hints)
-                if wm_normal_hints.flag & (Xutil.PPosition | Xutil.PMaxSize):
+                if wm_normal_hints.flags & (Xutil.PPosition | Xutil.PMaxSize):
                     normal_hints_geometry = WindowGeometry(
                         wm_normal_hints.x,
                         wm_normal_hints.y,
