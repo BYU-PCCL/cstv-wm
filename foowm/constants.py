@@ -76,7 +76,7 @@ LAYOUT_GEOMETRY = {
     ),
     None: {
         DisplayLayout.Fullscreen: lambda *, width, height, **_: (0, 0, width, height),
-        DisplayLayout.Fit4k: (715, 0, 3125, 1758),
+        DisplayLayout.Fit4k: (715, 0, 3124, 1758),
         DisplayLayout.Production: lambda *, height, **_: (978, 0, 3125, height),
     },
 }
