@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import Dict, Callable, Optional, Any
+from typing import Dict, Callable, Optional, Any, Set
 
 from Xlib.display import Display
 from Xlib import X, error, Xatom, Xutil
@@ -51,6 +51,7 @@ class FootronWindowManager:
     _display_layout: DisplayLayout
     _placard: Optional[Client]
     _clients: Dict[int, Client]
+    _client_parents: Set[int]
 
     def __init__(self, display_layout: DisplayLayout):
         self._net_atoms = {}
@@ -69,6 +70,7 @@ class FootronWindowManager:
         self._display_layout = display_layout
         self._placard = None
         self._clients = {}
+        self._client_parents = set()
 
     def start(self):
         self._setup()
@@ -167,11 +169,17 @@ class FootronWindowManager:
         if not attrs or attrs.override_redirect:
             return
 
+        if ev.window.id in self._client_parents:
+            return
+
         self._manage_new_window(ev.window)
 
     def _handle_unmap_notify(self, ev: event.UnmapNotify):
         window_id = ev.window.id
         logger.debug(f"Handling UnmapNotify event for window {hex(window_id)}")
+
+        if window_id in self._client_parents:
+            return
 
         try:
             client = self._clients[window_id]
@@ -185,6 +193,8 @@ class FootronWindowManager:
             logger.info("Placard window is closing")
             self._placard = None
 
+        client.parent.unmap()
+        self._client_parents.remove(client.parent.id)
         del self._clients[window_id]
         self._set_ewmh_clients_list()
 
@@ -215,6 +225,9 @@ class FootronWindowManager:
     def _handle_configure_request(self, ev: event.ConfigureRequest):
         logger.debug(f"Handling ConfigureRequest event for window {hex(ev.window.id)}")
 
+        if ev.window.id in self._client_parents:
+            return
+
         try:
             client = self._clients[ev.window.id]
         except KeyError:
@@ -237,6 +250,9 @@ class FootronWindowManager:
 
     def _handle_property_notify(self, ev: event.PropertyNotify):
         logger.debug(f"Handling PropertyNotify event for window {hex(ev.window.id)}")
+
+        if ev.window.id in self._client_parents:
+            return
 
         try:
             client = self._clients[ev.window.id]
@@ -369,7 +385,6 @@ class FootronWindowManager:
 
         # TODO: Should we be doing error handling here (map has onerror arg, set to
         #  None by default)?
-        window.map()
         self._raise_placard()
         window.change_attributes(
             event_mask=X.EnterWindowMask
@@ -422,8 +437,24 @@ class FootronWindowManager:
             logger.debug(f"Actual geometry for new window {hex(window.id)}:")
             debug_log_window_geometry(logger.debug, geometry)
 
+        parent: Window = self._root.create_window(
+            0,
+            0,
+            1,
+            1,
+            X.CopyFromParent,
+            X.CopyFromParent,
+        )
+        parent.map()
+
+        # Don't know if I can get into a feedback loop here or not
+        # parent.change_attributes(event_mask=0)
+        window.reparent(parent, 0, 0)
+        logger.debug(f"ID of parent for window {hex(window.id)} is {hex(parent.id)}")
+
         client = Client(
             window,
+            parent,
             geometry,
             desired_geometry,
             title,
@@ -431,11 +462,14 @@ class FootronWindowManager:
             floating,
         )
 
+        self._client_parents.add(parent.id)
+
         if client_type == ClientType.Placard:
             logger.info("Matched new placard window")
             self._placard = client
 
         self.scale_client(client, client.geometry)
+        window.map()
         self._clients[client.window.id] = client
         self._set_ewmh_clients_list()
 
@@ -505,9 +539,13 @@ class FootronWindowManager:
             debug_log_window_geometry(logger.debug, geometry)
 
         try:
-            client.window.configure(
+            client.parent.configure(
                 x=geometry.x,
                 y=geometry.y,
+                width=geometry.width,
+                height=geometry.height,
+            )
+            client.window.configure(
                 width=geometry.width,
                 height=geometry.height,
             )
