@@ -542,12 +542,12 @@ class FootronWindowManager:
             client.parent.configure(
                 x=geometry.x,
                 y=geometry.y,
-                width=geometry.width,
-                height=geometry.height,
+                width=max(geometry.width, 1),
+                height=max(geometry.height, 1),
             )
             client.window.configure(
-                width=geometry.width,
-                height=geometry.height,
+                width=max(geometry.width, 1),
+                height=max(geometry.height, 1),
             )
             self._display.sync()
         except error.XError:
