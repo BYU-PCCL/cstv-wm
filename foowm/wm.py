@@ -365,12 +365,13 @@ class FootronWindowManager:
             if self._debug_logging:
                 logger.debug(f"Found size hints on new window {hex(window.id)}:")
                 debug_log_size_hints(logger.debug, wm_normal_hints)
-                normal_hints_geometry = WindowGeometry(
-                    wm_normal_hints.x,
-                    wm_normal_hints.y,
-                    wm_normal_hints.max_width,
-                    wm_normal_hints.max_height,
-                )
+                if wm_normal_hints.flag & (Xutil.PPosition | Xutil.PMaxSize):
+                    normal_hints_geometry = WindowGeometry(
+                        wm_normal_hints.x,
+                        wm_normal_hints.y,
+                        wm_normal_hints.max_width,
+                        wm_normal_hints.max_height,
+                    )
 
         # @vinhowe: At this point, berry gets class hint information from the window,
         # but it's unclear to me that it ever does anything with that information
