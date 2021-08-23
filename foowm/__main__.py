@@ -15,7 +15,7 @@ def _log_level(arg):
 parser = argparse.ArgumentParser()
 parser.add_argument(
     "--layout",
-    help="set display layout ('fullscreen' (default), 'fit4k', 'production')",
+    help="set display layout ('fullscreen' (default), 'production')",
     type=DisplayLayout,
     default=DisplayLayout.Fullscreen,
 )
