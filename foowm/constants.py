@@ -59,7 +59,7 @@ LAYOUT_GEOMETRY = {
             int(width * 0.2),
             height,
         ),
-        DisplayLayout.Production: (0, 0, 780, 1080),
+        DisplayLayout.Production: (0, 0, 574, 1216),
     },
     ClientType.OffscreenSource: lambda *, width, geometry, **_: (
         width,
@@ -75,6 +75,6 @@ LAYOUT_GEOMETRY = {
     ),
     None: {
         DisplayLayout.Fullscreen: lambda *, width, height, **_: (0, 0, width, height),
-        DisplayLayout.Production: (780, 0, 1920, 1080),
+        DisplayLayout.Production: (574, 0, 2162, 1216),
     },
 }
