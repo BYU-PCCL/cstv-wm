@@ -135,6 +135,9 @@ class FootronWindowManager:
         self._root.change_property(
             self._net_atoms[NetAtom.WmCheck], Xatom.WINDOW, 32, [self._check.id]
         )
+        # Chromium (at least) appears to need this to stop overscaling when going
+        # fullscreen:
+        # https://source.chromium.org/chromium/chromium/src/+/main:ui/base/x/x11_display_util.cc;l=58
         self._root.change_property(
             self._net_atoms[NetAtom.WorkArea],
             Xatom.CARDINAL,
