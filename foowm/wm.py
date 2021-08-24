@@ -316,7 +316,7 @@ class FootronWindowManager:
                 )
             return
 
-        if ev.atom == self._wm_atoms[NetAtom.WmState]:
+        if ev.atom == self._net_atoms[NetAtom.WmState]:
             logger.debug(
                 f"Received _NET_WM_STATE update on {hex(client.window.id)}:"
             )

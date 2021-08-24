@@ -15,10 +15,11 @@ UTF8_STRING_ATOM = "UTF8_STRING"
 SUPPORTED_NET_ATOMS = [
     NetAtom.Supported,
     NetAtom.ActiveWindow,
+    NetAtom.WmState,
+    NetAtom.WmStateFullscreen,
     NetAtom.WmName,
     NetAtom.ClientList,
     NetAtom.WmCheck,
-    NetAtom.WmState,
     NetAtom.WmWindowType,
     NetAtom.WmWindowTypeDock,
     NetAtom.WmWindowTypeToolbar,
