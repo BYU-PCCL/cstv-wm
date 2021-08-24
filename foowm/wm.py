@@ -316,6 +316,14 @@ class FootronWindowManager:
                 )
             return
 
+        if ev.atom == self._wm_atoms[NetAtom.WmState]:
+            logger.debug(
+                f"Received _NET_WM_STATE update on {hex(client.window.id)}:"
+            )
+            # If client decided to change window state, just try to force it back
+            self.scale_client(client, client.geometry)
+            return
+
     def _handle_enter_notify(self, ev: event.EnterNotify):
         logger.debug(f"Handling EnterNotify event for window {hex(ev.window.id)}")
         # Handling EnterNotify events seems to let us use popup menus in Chrome,
