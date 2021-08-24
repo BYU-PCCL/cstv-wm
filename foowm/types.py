@@ -122,6 +122,7 @@ class NetAtom:
     WmFrameExtents = "_NET_FRAME_EXTENTS"
     DesktopNames = "_NET_DESKTOP_NAMES"
     DesktopViewport = "_NET_DESKTOP_VIEWPORT"
+    WorkArea = "_NET_WORKAREA"
 
 
 class WmAtom:

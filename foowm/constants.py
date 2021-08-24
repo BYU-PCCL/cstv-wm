@@ -29,6 +29,7 @@ SUPPORTED_NET_ATOMS = [
     NetAtom.WmStateModal,
     NetAtom.WmStateAbove,
     NetAtom.WmStateSticky,
+    NetAtom.WorkArea,
 ]
 SUPPORTED_WM_ATOMS = [
     WmAtom.DeleteWindow,

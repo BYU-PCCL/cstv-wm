@@ -135,6 +135,12 @@ class FootronWindowManager:
         self._root.change_property(
             self._net_atoms[NetAtom.WmCheck], Xatom.WINDOW, 32, [self._check.id]
         )
+        self._root.change_property(
+            self._net_atoms[NetAtom.WorkArea],
+            Xatom.CARDINAL,
+            32,
+            list(LAYOUT_GEOMETRY[None][DisplayLayout.Production]),
+        )
         # Set supported EWMH atoms
         self._root.change_property(
             self._net_atoms[NetAtom.Supported],
