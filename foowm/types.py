@@ -24,6 +24,7 @@ class ClientType(enum.Enum):
 
 class DisplayLayout(enum.Enum):
     Fullscreen = "fullscreen"
+    Center = "center"
     Production = "production"
 
 

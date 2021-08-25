@@ -53,6 +53,12 @@ FLOATING_WINDOW_STATES = [
     NetAtom.WmStateSticky,
 ]
 
+PRODUCTION_WIDTH = 2736
+PRODUCTION_HEIGHT = 1216
+# Width required to make a 16:9 box
+PRODUCTION_VIEWPORT_WIDTH = 2162
+PRODUCTION_PLACARD_WIDTH = PRODUCTION_WIDTH - PRODUCTION_VIEWPORT_WIDTH
+
 LAYOUT_GEOMETRY = {
     ClientType.Placard: {
         DisplayLayout.Fullscreen: lambda *, width, height, **_: (
@@ -61,7 +67,13 @@ LAYOUT_GEOMETRY = {
             int(width * 0.2),
             height,
         ),
-        DisplayLayout.Production: (0, 0, 574, 1216),
+        DisplayLayout.Center: lambda *, width, height, **_: (
+            (width - PRODUCTION_WIDTH) / 2,
+            (height - PRODUCTION_HEIGHT) / 2,
+            PRODUCTION_PLACARD_WIDTH,
+            PRODUCTION_HEIGHT,
+        ),
+        DisplayLayout.Production: (0, 0, PRODUCTION_PLACARD_WIDTH, PRODUCTION_HEIGHT),
     },
     ClientType.OffscreenSource: lambda *, width, geometry, **_: (
         width,
@@ -77,6 +89,17 @@ LAYOUT_GEOMETRY = {
     ),
     None: {
         DisplayLayout.Fullscreen: lambda *, width, height, **_: (0, 0, width, height),
-        DisplayLayout.Production: (574, 0, 2162, 1216),
+        DisplayLayout.Center: lambda *, width, height, **_: (
+            ((width - PRODUCTION_WIDTH) / 2) + PRODUCTION_PLACARD_WIDTH,
+            (height - PRODUCTION_HEIGHT) / 2,
+            PRODUCTION_VIEWPORT_WIDTH,
+            PRODUCTION_HEIGHT,
+        ),
+        DisplayLayout.Production: (
+            PRODUCTION_PLACARD_WIDTH,
+            0,
+            PRODUCTION_VIEWPORT_WIDTH,
+            PRODUCTION_HEIGHT,
+        ),
     },
 }
