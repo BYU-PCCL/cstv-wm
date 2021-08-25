@@ -35,6 +35,7 @@ logger = logging.getLogger(WM_NAME)
 
 
 class FootronWindowManager:
+    _fullscreen: bool
     _display: Display
     _screen: Screen
     _root: Window
@@ -54,6 +55,7 @@ class FootronWindowManager:
     _client_parents: Set[int]
 
     def __init__(self, display_layout: DisplayLayout):
+        self._fullscreen = False
         self._net_atoms = {}
         self._wm_atoms = {}
         self._event_handlers = {
@@ -75,6 +77,18 @@ class FootronWindowManager:
     def start(self):
         self._setup()
         self._loop()
+
+    @property
+    def fullscreen(self):
+        return self._fullscreen
+
+    @fullscreen.setter
+    def fullscreen(self, fullscreen: bool):
+        if fullscreen == self._fullscreen:
+            return
+
+        self._fullscreen = fullscreen
+        self._setup_workarea()
 
     @property
     def clients(self):
@@ -135,14 +149,15 @@ class FootronWindowManager:
         self._root.change_property(
             self._net_atoms[NetAtom.WmCheck], Xatom.WINDOW, 32, [self._check.id]
         )
-        # Chromium (at least) appears to need this to stop overscaling when going
-        # fullscreen:
-        # https://source.chromium.org/chromium/chromium/src/+/main:ui/base/x/x11_display_util.cc;l=58
         self._root.change_property(
             self._net_atoms[NetAtom.WorkArea],
             Xatom.CARDINAL,
             32,
-            list(LAYOUT_GEOMETRY[None][DisplayLayout.Production]),
+            list(
+                LAYOUT_GEOMETRY[None][DisplayLayout.Production](
+                    fullscreen=self._fullscreen
+                )
+            ),
         )
         # Set supported EWMH atoms
         self._root.change_property(
@@ -151,8 +166,24 @@ class FootronWindowManager:
             32,
             list(self._net_atoms.values()),
         )
+        self._setup_workarea()
 
         logger.debug("Setup finished")
+
+    def _setup_workarea(self):
+        # Chromium (at least) appears to need this to stop overscaling when going
+        # fullscreen:
+        # https://source.chromium.org/chromium/chromium/src/+/main:ui/base/x/x11_display_util.cc;l=58
+        self._root.change_property(
+            self._net_atoms[NetAtom.WorkArea],
+            Xatom.CARDINAL,
+            32,
+            list(
+                LAYOUT_GEOMETRY[None][DisplayLayout.Production](
+                    fullscreen=self._fullscreen
+                )
+            ),
+        )
 
     def _raise_placard(self):
         if not self._placard:
@@ -535,7 +566,10 @@ class FootronWindowManager:
 
         return WindowGeometry(
             *geometry_factory(
-                width=self._width, height=self._height, geometry=desired_geometry
+                width=self._width,
+                height=self._height,
+                geometry=desired_geometry,
+                fullscreen=self._fullscreen,
             )
         )
 

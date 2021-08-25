@@ -89,16 +89,17 @@ LAYOUT_GEOMETRY = {
     ),
     None: {
         DisplayLayout.Fullscreen: lambda *, width, height, **_: (0, 0, width, height),
-        DisplayLayout.Center: lambda *, width, height, **_: (
-            ((width - PRODUCTION_WIDTH) // 2) + PRODUCTION_PLACARD_WIDTH,
+        DisplayLayout.Center: lambda *, width, height, fullscreen, **_: (
+            ((width - PRODUCTION_WIDTH) // 2)
+            + (0 if fullscreen else PRODUCTION_PLACARD_WIDTH),
             (height - PRODUCTION_HEIGHT) // 2,
-            PRODUCTION_VIEWPORT_WIDTH,
+            PRODUCTION_WIDTH if fullscreen else PRODUCTION_VIEWPORT_WIDTH,
             PRODUCTION_HEIGHT,
         ),
-        DisplayLayout.Production: (
-            PRODUCTION_PLACARD_WIDTH,
+        DisplayLayout.Production: lambda *, fullscreen, **_: (
+            0 if fullscreen else PRODUCTION_PLACARD_WIDTH,
             0,
-            PRODUCTION_VIEWPORT_WIDTH,
+            PRODUCTION_WIDTH if fullscreen else PRODUCTION_VIEWPORT_WIDTH,
             PRODUCTION_HEIGHT,
         ),
     },
