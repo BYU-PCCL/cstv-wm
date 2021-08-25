@@ -600,4 +600,3 @@ class FootronWindowManager:
 
             logger.debug(f"Handling event of type {ev.__class__.__name__}")
             self._event_handlers[ev.type](ev)
-            self._raise_placard()
