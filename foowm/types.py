@@ -39,7 +39,6 @@ class WindowGeometry:
 @dataclasses.dataclass
 class Client:
     window: Window
-    parent: Window
     geometry: WindowGeometry
     desired_geometry: WindowGeometry
     title: str
