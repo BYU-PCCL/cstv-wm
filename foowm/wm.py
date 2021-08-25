@@ -237,6 +237,7 @@ class FootronWindowManager:
         self._client_parents.remove(client.parent.id)
         del self._clients[window_id]
         self._set_ewmh_clients_list()
+        self._raise_placard()
 
     def _handle_configure_notify(self, ev: event.ConfigureNotify):
         logger.debug(f"Handling ConfigureNotify event for window {hex(ev.window.id)}")
@@ -259,6 +260,7 @@ class FootronWindowManager:
                     (self._width, self._height),
                 )
 
+        self._raise_placard()
         # TODO: If we ever need more involved multi-display handling, this would be
         #  the place to do it
 
@@ -344,6 +346,7 @@ class FootronWindowManager:
                     wm_normal_hints.max_width,
                     wm_normal_hints.max_height,
                 )
+                self._raise_placard()
             return
 
         if ev.atom == self._net_atoms[NetAtom.WmState]:
@@ -515,6 +518,7 @@ class FootronWindowManager:
 
         self.scale_client(client, client.geometry)
         window.map()
+        self._raise_placard()
         self._clients[client.window.id] = client
         self._set_ewmh_clients_list()
 
@@ -597,8 +601,8 @@ class FootronWindowManager:
                 width=max(geometry.width, 1),
                 height=max(geometry.height, 1),
             )
-            self._raise_placard()
             self._display.sync()
+            self._raise_placard()
         except error.XError:
             logger.exception(f"Error while scaling client {hex(client.window.id)}")
 
