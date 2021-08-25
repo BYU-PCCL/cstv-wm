@@ -348,9 +348,7 @@ class FootronWindowManager:
             return
 
         if ev.atom == self._net_atoms[NetAtom.WmState]:
-            logger.debug(
-                f"Received _NET_WM_STATE update on {hex(client.window.id)}:"
-            )
+            logger.debug(f"Received _NET_WM_STATE update on {hex(client.window.id)}:")
             # If client decided to change window state, just try to force it back
             self.scale_client(client, client.geometry)
             return
