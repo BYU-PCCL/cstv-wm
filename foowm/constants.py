@@ -68,8 +68,8 @@ LAYOUT_GEOMETRY = {
             height,
         ),
         DisplayLayout.Center: lambda *, width, height, **_: (
-            (width - PRODUCTION_WIDTH) / 2,
-            (height - PRODUCTION_HEIGHT) / 2,
+            (width - PRODUCTION_WIDTH) // 2,
+            (height - PRODUCTION_HEIGHT) // 2,
             PRODUCTION_PLACARD_WIDTH,
             PRODUCTION_HEIGHT,
         ),
@@ -90,8 +90,8 @@ LAYOUT_GEOMETRY = {
     None: {
         DisplayLayout.Fullscreen: lambda *, width, height, **_: (0, 0, width, height),
         DisplayLayout.Center: lambda *, width, height, **_: (
-            ((width - PRODUCTION_WIDTH) / 2) + PRODUCTION_PLACARD_WIDTH,
-            (height - PRODUCTION_HEIGHT) / 2,
+            ((width - PRODUCTION_WIDTH) // 2) + PRODUCTION_PLACARD_WIDTH,
+            (height - PRODUCTION_HEIGHT) // 2,
             PRODUCTION_VIEWPORT_WIDTH,
             PRODUCTION_HEIGHT,
         ),
