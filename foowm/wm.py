@@ -190,7 +190,7 @@ class FootronWindowManager:
             return
 
         logger.debug("Raising placard...")
-        self._placard.window.raise_window()
+        self._placard.parent.raise_window()
         self._display.sync()
 
     def _handle_map_request(self, ev: event.MapRequest):
