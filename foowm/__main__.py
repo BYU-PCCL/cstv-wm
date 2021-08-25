@@ -45,29 +45,21 @@ logger = logging.getLogger(__name__)
 # TODO: Should this be moved into its own file?
 def messaging_loop(wm: FootronWindowManager):
     context = zmq.Context()
-    socket = context.socket(zmq.REP)
+    socket = context.socket(zmq.PAIR)
     socket.bind("tcp://127.0.0.1:5557")
 
     while True:
         try:
             message = socket.recv_json()
             if "fullscreen" not in message:
-                socket.send_json(
-                    {"error": "Required 'fullscreen' parameter not in message"}
-                )
                 continue
 
             fullscreen = message["fullscreen"]
             if not isinstance(fullscreen, bool):
-                socket.send_json(
-                    {"error": "Parameter 'fullscreen' should be a boolean"}
-                )
                 continue
 
             logging.debug(f"Received request: {message}")
             wm.fullscreen = fullscreen
-
-            socket.send_json({"status": "ok"})
         except Exception as e:
             logger.exception(e)
 
