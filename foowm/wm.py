@@ -286,7 +286,6 @@ class FootronWindowManager:
         )
 
         self.scale_client(client, client.geometry)
-        self._raise_placard()
 
     def _handle_property_notify(self, ev: event.PropertyNotify):
         logger.debug(f"Handling PropertyNotify event for window {hex(ev.window.id)}")
@@ -432,7 +431,6 @@ class FootronWindowManager:
 
         # TODO: Should we be doing error handling here (map has onerror arg, set to
         #  None by default)?
-        self._raise_placard()
         window.change_attributes(
             event_mask=X.EnterWindowMask
             | X.FocusChangeMask
@@ -599,6 +597,7 @@ class FootronWindowManager:
                 width=max(geometry.width, 1),
                 height=max(geometry.height, 1),
             )
+            self._raise_placard()
             self._display.sync()
         except error.XError:
             logger.exception(f"Error while scaling client {hex(client.window.id)}")
