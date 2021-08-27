@@ -308,10 +308,11 @@ class FootronWindowManager:
                 logger.info("Matched existing window as placard")
                 self._placard = client
 
-            client.geometry = self._client_geometry(
-                client.desired_geometry, client.type, client.floating
-            )
-            self.scale_client(client, client.geometry)
+            if old_type != client.type:
+                client.geometry = self._client_geometry(
+                    client.desired_geometry, client.type, client.floating
+                )
+                self.scale_client(client, client.geometry)
             return
 
         if ev.atom == self._wm_atoms[WmAtom.NormalHints]:
