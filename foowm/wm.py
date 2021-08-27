@@ -37,6 +37,7 @@ logger = logging.getLogger(WM_NAME)
 
 class FootronWindowManager:
     message_queue: queue.Queue
+    response_queue: queue.Queue
     _fullscreen: bool
     _display: Display
     _screen: Screen
@@ -57,6 +58,7 @@ class FootronWindowManager:
 
     def __init__(self, display_layout: DisplayLayout):
         self.message_queue = queue.Queue()
+        self.response_queue = queue.Queue()
         self._fullscreen = False
         self._net_atoms = {}
         self._wm_atoms = {}
@@ -648,6 +650,7 @@ class FootronWindowManager:
         while True:
             try:
                 self._handle_message(self.message_queue.get_nowait())
+                self.response_queue.put(True)
             except queue.Empty:
                 break
 

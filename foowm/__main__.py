@@ -1,5 +1,6 @@
 import argparse
 import logging
+import queue
 import threading
 
 import zmq
@@ -53,11 +54,15 @@ def messaging_loop(wm: FootronWindowManager):
             message = socket.recv_json()
             logging.debug(f"Received request: {message}")
             wm.message_queue.put(message)
-
         except Exception as e:
             logger.exception(e)
 
-        # await socket.send_json({"error": "something went wrong"})
+        while True:
+            try:
+                _ = wm.response_queue.get_nowait()
+                socket.send_json({"status": "ok"})
+            except queue.Empty:
+                break
 
 
 wm = FootronWindowManager(args.layout)
