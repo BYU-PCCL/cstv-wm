@@ -57,13 +57,6 @@ def messaging_loop(wm: FootronWindowManager):
         except Exception as e:
             logger.exception(e)
 
-        while True:
-            try:
-                _ = wm.response_queue.get_nowait()
-                socket.send_json({"status": "ok"})
-            except queue.Empty:
-                break
-
 
 wm = FootronWindowManager(args.layout)
 messaging_thread = threading.Thread(target=messaging_loop, args=(wm,))

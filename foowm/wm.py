@@ -1,3 +1,4 @@
+import datetime
 import logging
 import queue
 import re
@@ -37,7 +38,6 @@ logger = logging.getLogger(WM_NAME)
 
 class FootronWindowManager:
     message_queue: queue.Queue
-    response_queue: queue.Queue
     _fullscreen: bool
     _display: Display
     _screen: Screen
@@ -58,7 +58,6 @@ class FootronWindowManager:
 
     def __init__(self, display_layout: DisplayLayout):
         self.message_queue = queue.Queue()
-        self.response_queue = queue.Queue()
         self._fullscreen = False
         self._net_atoms = {}
         self._wm_atoms = {}
@@ -495,6 +494,7 @@ class FootronWindowManager:
             title,
             client_type,
             floating,
+            datetime.datetime.now(),
         )
 
         if client_type == ClientType.Placard:
@@ -507,8 +507,9 @@ class FootronWindowManager:
         self._clients[client.window.id] = client
         self._set_ewmh_clients_list()
 
-    def clear_viewport(self):
+    def clear_viewport(self, before: datetime.datetime):
         windows_killed = 0
+        windows_skipped = 0
         for key, client in list(self._clients.items()):
             if client.type not in [
                 ClientType.OffscreenHack,
@@ -516,11 +517,17 @@ class FootronWindowManager:
                 None,
             ]:
                 continue
+            if client.created_at > before:
+                windows_skipped += 1
+                continue
+
             client.window.kill_client()
             # TODO: Do we need to remove these clients? Will they unmap themselves?
             del self._clients[key]
             windows_killed += 1
-        logger.debug(f"Cleared viewport: killed {windows_killed} windows")
+        logger.debug(
+            f"Cleared viewport: killed {windows_killed} window(s) and skipped {windows_skipped} window(s)"
+        )
         self._set_ewmh_clients_list()
         self._raise_placard()
 
@@ -641,7 +648,15 @@ class FootronWindowManager:
             return
 
         if message_type == "clear_viewport":
-            self.clear_viewport()
+            if "before" not in message:
+                logger.error("Required 'before' parameter not in message")
+                return
+
+            before = message["before"]
+            if not isinstance(before, int):
+                logger.error("Parameter 'before' should be an int")
+                return
+            self.clear_viewport(datetime.datetime.fromtimestamp(before / 1000))
             return
 
         logger.error(f"Unhandled message type '{message_type}'")
@@ -650,7 +665,6 @@ class FootronWindowManager:
         while True:
             try:
                 self._handle_message(self.message_queue.get_nowait())
-                self.response_queue.put(True)
             except queue.Empty:
                 break
 

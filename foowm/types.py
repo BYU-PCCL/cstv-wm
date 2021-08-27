@@ -1,4 +1,5 @@
 import dataclasses
+import datetime
 import enum
 from typing import Optional
 
@@ -44,6 +45,7 @@ class Client:
     title: str
     type: Optional[ClientType]
     floating: bool
+    created_at: datetime.datetime
 
 
 # Apparently python-xlib won't give us access to x and y on the standard
