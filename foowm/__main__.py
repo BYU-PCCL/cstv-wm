@@ -43,7 +43,7 @@ logging.basicConfig(level=args.v or args.level or logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-# # TODO: Should this be moved into its own file?
+# TODO: Should this be moved into its own file?
 def messaging_loop(wm: FootronWindowManager):
     context = zmq.Context()
     socket = context.socket(zmq.PAIR)
