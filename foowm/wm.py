@@ -488,6 +488,20 @@ class FootronWindowManager:
         self._clients[client.window.id] = client
         self._set_ewmh_clients_list()
 
+    def clear_viewport(self):
+        for key, client in list(self._clients.values()):
+            if client.type not in [
+                ClientType.OffscreenHack,
+                ClientType.OffscreenSource,
+                None,
+            ]:
+                continue
+            client.window.kill_client()
+            # TODO: Do we need to remove these clients? Will they unmap themselves?
+            del self._clients[key]
+        self._set_ewmh_clients_list()
+        self._raise_placard()
+
     @staticmethod
     def _client_type_from_title(title: str) -> Optional[ClientType]:
         if not title:

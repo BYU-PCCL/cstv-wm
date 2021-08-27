@@ -51,23 +51,37 @@ def messaging_loop(wm: FootronWindowManager):
     while True:
         try:
             message = socket.recv_json()
-            if "fullscreen" not in message:
+            logging.debug(f"Received request: {message}")
+            if "type" not in message:
                 socket.send_json(
                     {"error": "Required 'fullscreen' parameter not in message"}
                 )
                 continue
 
-            fullscreen = message["fullscreen"]
-            if not isinstance(fullscreen, bool):
-                socket.send_json(
-                    {"error": "Parameter 'fullscreen' should be a boolean"}
-                )
-                continue
+            message_type = message["type"]
+            if message_type == "fullscreen":
+                if "fullscreen" not in message:
+                    socket.send_json(
+                        {"error": "Required 'fullscreen' parameter not in message"}
+                    )
+                    continue
 
-            logging.debug(f"Received request: {message}")
-            wm.fullscreen = fullscreen
+                fullscreen = message["fullscreen"]
+                if not isinstance(fullscreen, bool):
+                    socket.send_json(
+                        {"error": "Parameter 'fullscreen' should be a boolean"}
+                    )
+                    continue
 
-            socket.send_json({"status": "ok"})
+                wm.fullscreen = fullscreen
+                socket.send_json({"status": "ok"})
+                return
+
+            if message_type == "clear_viewport":
+                wm.clear_viewport()
+                socket.send_json({"status": "ok"})
+                return
+
         except Exception as e:
             logger.exception(e)
 
