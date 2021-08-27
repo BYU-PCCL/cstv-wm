@@ -90,6 +90,7 @@ class FootronWindowManager:
 
         self._fullscreen = fullscreen
         self._setup_workarea()
+        self._update_viewport_geometry()
 
     @property
     def clients(self):
@@ -185,6 +186,20 @@ class FootronWindowManager:
                 )
             ),
         )
+
+    def _update_viewport_geometry(self):
+        windows_resized = 0
+        for client in self._clients.values():
+            if client.type is not None:
+                continue
+
+            client.geometry = self._client_geometry(
+                client.desired_geometry, client.type, client.floating
+            )
+            self.scale_client(client, client.geometry)
+            windows_resized += 1
+        logger.debug(f"Updated viewport geometry: resized {windows_resized} windows")
+        self._raise_placard()
 
     def _raise_placard(self):
         if not self._placard:
