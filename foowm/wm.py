@@ -490,6 +490,7 @@ class FootronWindowManager:
         self._set_ewmh_clients_list()
 
     def clear_viewport(self):
+        windows_killed = 0
         for key, client in list(self._clients.values()):
             if client.type not in [
                 ClientType.OffscreenHack,
@@ -500,6 +501,8 @@ class FootronWindowManager:
             client.window.kill_client()
             # TODO: Do we need to remove these clients? Will they unmap themselves?
             del self._clients[key]
+            windows_killed += 1
+        logger.debug(f"Cleared viewport: killed {windows_killed} windows")
         self._set_ewmh_clients_list()
         self._raise_placard()
 
