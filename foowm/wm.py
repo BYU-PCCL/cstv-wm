@@ -1,4 +1,5 @@
 import logging
+import queue
 import re
 from typing import Dict, Callable, Optional, Any
 
@@ -35,6 +36,7 @@ logger = logging.getLogger(WM_NAME)
 
 
 class FootronWindowManager:
+    message_queue: queue.Queue
     _fullscreen: bool
     _display: Display
     _screen: Screen
@@ -54,6 +56,7 @@ class FootronWindowManager:
     _clients: Dict[int, Client]
 
     def __init__(self, display_layout: DisplayLayout):
+        self.message_queue = queue.Queue()
         self._fullscreen = False
         self._net_atoms = {}
         self._wm_atoms = {}
@@ -249,8 +252,6 @@ class FootronWindowManager:
                     old_dimensions,
                     (self._width, self._height),
                 )
-
-        self._raise_placard()
         # TODO: If we ever need more involved multi-display handling, this would be
         #  the place to do it
 
@@ -491,7 +492,7 @@ class FootronWindowManager:
 
     def clear_viewport(self):
         windows_killed = 0
-        for key, client in list(self._clients.values()):
+        for key, client in list(self._clients.items()):
             if client.type not in [
                 ClientType.OffscreenHack,
                 ClientType.OffscreenSource,
@@ -606,6 +607,35 @@ class FootronWindowManager:
             logger.exception("Error while getting window title")
             return None
 
+    def _handle_message(self, message: Dict):
+        message_type = message["type"]
+        logging.debug(f"Processing message of type '{message_type}'")
+        if message_type == "fullscreen":
+            if "fullscreen" not in message:
+                logger.error("Required 'fullscreen' parameter not in message")
+                return
+
+            fullscreen = message["fullscreen"]
+            if not isinstance(fullscreen, bool):
+                logger.error("Parameter 'fullscreen' should be a boolean")
+                return
+
+            self.fullscreen = fullscreen
+            return
+
+        if message_type == "clear_viewport":
+            self.clear_viewport()
+            return
+
+        logger.error(f"Unhandled message type '{message_type}'")
+
+    def _process_messages(self):
+        while True:
+            try:
+                self._handle_message(self.message_queue.get_nowait())
+            except queue.Empty:
+                break
+
     def _loop(self):
         self._display.sync()
         while True:
@@ -618,3 +648,4 @@ class FootronWindowManager:
 
             logger.debug(f"Handling event of type {ev.__class__.__name__}")
             self._event_handlers[ev.type](ev)
+            self._process_messages()

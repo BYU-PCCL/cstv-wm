@@ -42,49 +42,22 @@ logging.basicConfig(level=args.v or args.level or logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-# TODO: Should this be moved into its own file?
+# # TODO: Should this be moved into its own file?
 def messaging_loop(wm: FootronWindowManager):
     context = zmq.Context()
-    socket = context.socket(zmq.REP)
+    socket = context.socket(zmq.PAIR)
     socket.bind("tcp://127.0.0.1:5557")
 
     while True:
         try:
             message = socket.recv_json()
             logging.debug(f"Received request: {message}")
-            if "type" not in message:
-                socket.send_json(
-                    {"error": "Required 'fullscreen' parameter not in message"}
-                )
-                continue
-
-            message_type = message["type"]
-            if message_type == "fullscreen":
-                if "fullscreen" not in message:
-                    socket.send_json(
-                        {"error": "Required 'fullscreen' parameter not in message"}
-                    )
-                    continue
-
-                fullscreen = message["fullscreen"]
-                if not isinstance(fullscreen, bool):
-                    socket.send_json(
-                        {"error": "Parameter 'fullscreen' should be a boolean"}
-                    )
-                    continue
-
-                wm.fullscreen = fullscreen
-                socket.send_json({"status": "ok"})
-                return
-
-            if message_type == "clear_viewport":
-                wm.clear_viewport()
-                socket.send_json({"status": "ok"})
-                return
+            wm.message_queue.put(message)
 
         except Exception as e:
             logger.exception(e)
-            socket.send_json({"error": "something went wrong"})
+
+        # await socket.send_json({"error": "something went wrong"})
 
 
 wm = FootronWindowManager(args.layout)
