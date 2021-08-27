@@ -84,6 +84,7 @@ def messaging_loop(wm: FootronWindowManager):
 
         except Exception as e:
             logger.exception(e)
+            socket.send_json({"error": "something went wrong"})
 
 
 wm = FootronWindowManager(args.layout)
