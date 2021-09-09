@@ -259,6 +259,9 @@ class FootronWindowManager:
         if client.type == ClientType.Placard:
             logger.info("Placard window is closing")
             self._placard = None
+        elif client.type == ClientType.Loader:
+            logger.info("Loading window is closing")
+            self._loader = None
 
         del self._clients[window_id]
         self._set_ewmh_clients_list()
