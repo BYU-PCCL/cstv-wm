@@ -694,7 +694,7 @@ class FootronWindowManager:
             include = message["include"] if "include" in message else None
             self.clear_viewport(
                 datetime.datetime.fromtimestamp(before / 1000),
-                list(map(ClientType, include)),
+                list(map(ClientType, include)) if include is not None else None,
             )
             return
 
