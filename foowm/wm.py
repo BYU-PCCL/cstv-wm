@@ -535,6 +535,14 @@ class FootronWindowManager:
         windows_killed = 0
         windows_skipped = 0
         clear_types = include if include is not None else DEFAULT_CLEAR_TYPES
+        if not include:
+            logger.debug(
+                f"Attempting to clear viewport using default include list"
+            )
+        else:
+            logger.debug(
+                f"Attempting to clear viewport using custom include list: {include}"
+            )
         for key, client in list(self._clients.items()):
             if client.type not in clear_types:
                 continue
