@@ -534,6 +534,7 @@ class FootronWindowManager:
             if client.type not in [
                 ClientType.OffscreenHack,
                 ClientType.OffscreenSource,
+                ClientType.Loader,
                 None,
             ]:
                 continue
