@@ -2,7 +2,7 @@ import datetime
 import logging
 import queue
 import re
-from typing import Dict, Callable, Optional, Any
+from typing import Dict, Callable, Optional, Any, List
 
 from Xlib.display import Display
 from Xlib import X, error, Xatom, Xutil
@@ -20,7 +20,9 @@ from .constants import (
     SUPPORTED_WM_ATOMS,
     FLOATING_WINDOW_TYPES,
     LAYOUT_GEOMETRY,
-    FLOATING_WINDOW_STATES, LOADER_WINDOW_NAME,
+    FLOATING_WINDOW_STATES,
+    LOADER_WINDOW_NAME,
+    DEFAULT_CLEAR_TYPES,
 )
 from .types import (
     Client,
@@ -527,16 +529,14 @@ class FootronWindowManager:
         self._clients[client.window.id] = client
         self._set_ewmh_clients_list()
 
-    def clear_viewport(self, before: datetime.datetime):
+    def clear_viewport(
+        self, before: datetime.datetime, include: Optional[List[ClientType]]
+    ):
         windows_killed = 0
         windows_skipped = 0
+        clear_types = include if include is not None else DEFAULT_CLEAR_TYPES
         for key, client in list(self._clients.items()):
-            if client.type not in [
-                ClientType.OffscreenHack,
-                ClientType.OffscreenSource,
-                ClientType.Loader,
-                None,
-            ]:
+            if client.type not in clear_types:
                 continue
             if client.created_at > before:
                 windows_skipped += 1
@@ -680,7 +680,11 @@ class FootronWindowManager:
             if not isinstance(before, int):
                 logger.error("Parameter 'before' should be an int")
                 return
-            self.clear_viewport(datetime.datetime.fromtimestamp(before / 1000))
+            include = message["include"] if "include" in message else None
+            self.clear_viewport(
+                datetime.datetime.fromtimestamp(before / 1000),
+                list(map(ClientType, include)),
+            )
             return
 
         logger.error(f"Unhandled message type '{message_type}'")

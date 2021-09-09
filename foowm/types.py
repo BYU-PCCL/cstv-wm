@@ -10,18 +10,18 @@ from Xlib.xobject.drawable import Window
 
 
 class ClientType(enum.Enum):
-    Placard = enum.auto()
-    Loader = enum.auto()
+    Placard = "placard"
+    Loader = "loader"
     # A developer-defined "offscreen source" provides a video source to be composed into
     # a visible window, like a browser. This behavior enables a use case where a
     # developer wants to display a live GPU/CUDA-generated visualization alongside UI
     # elements using the layout/styling capabilities of a web browser.
-    OffscreenSource = enum.auto()
+    OffscreenSource = "offscreen_source"
     # Things we pile up offscreen because we don't want to see them.
     # @vinhowe: I call this a "hack" because we should try to eliminate all cases where
     # we need this behavior. Matching titles for windows we don't we control is fraught
     # because all it takes is an application update for this hack to stop working.
-    OffscreenHack = enum.auto()
+    OffscreenHack = "offscreen_hack"
 
 
 class DisplayLayout(enum.Enum):

@@ -54,6 +54,13 @@ FLOATING_WINDOW_STATES = [
     NetAtom.WmStateSticky,
 ]
 
+DEFAULT_CLEAR_TYPES = [
+    ClientType.OffscreenHack,
+    ClientType.OffscreenSource,
+    ClientType.Loader,
+    None,
+]
+
 PRODUCTION_WIDTH = 2736
 PRODUCTION_HEIGHT = 1216
 # Width required to make a 16:9 box
