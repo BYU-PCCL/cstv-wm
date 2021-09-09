@@ -20,7 +20,7 @@ from .constants import (
     SUPPORTED_WM_ATOMS,
     FLOATING_WINDOW_TYPES,
     LAYOUT_GEOMETRY,
-    FLOATING_WINDOW_STATES,
+    FLOATING_WINDOW_STATES, LOADER_WINDOW_NAME,
 )
 from .types import (
     Client,
@@ -54,6 +54,7 @@ class FootronWindowManager:
 
     _display_layout: DisplayLayout
     _placard: Optional[Client]
+    _loader: Optional[Client]
     _clients: Dict[int, Client]
 
     def __init__(self, display_layout: DisplayLayout):
@@ -74,6 +75,7 @@ class FootronWindowManager:
 
         self._display_layout = display_layout
         self._placard = None
+        self._loader = None
         self._clients = {}
 
     def start(self):
@@ -200,7 +202,7 @@ class FootronWindowManager:
             self.scale_client(client, client.geometry)
             windows_resized += 1
         logger.debug(f"Updated viewport geometry: resized {windows_resized} windows")
-        self._raise_placard()
+        self._preserve_window_order()
 
     def _raise_placard(self):
         if not self._placard:
@@ -209,6 +211,18 @@ class FootronWindowManager:
         logger.debug("Raising placard...")
         self._placard.window.raise_window()
         self._display.sync()
+
+    def _raise_loader(self):
+        if not self._loader:
+            return
+
+        logger.debug("Raising loading window...")
+        self._loader.window.raise_window()
+        self._display.sync()
+
+    def _preserve_window_order(self):
+        self._raise_loader()
+        self._raise_placard()
 
     def _handle_map_request(self, ev: event.MapRequest):
         # Background on mapping and unmapping (last paragraph):
@@ -246,7 +260,7 @@ class FootronWindowManager:
 
         del self._clients[window_id]
         self._set_ewmh_clients_list()
-        self._raise_placard()
+        self._preserve_window_order()
 
     def _handle_configure_notify(self, ev: event.ConfigureNotify):
         logger.debug(f"Handling ConfigureNotify event for window {hex(ev.window.id)}")
@@ -324,6 +338,9 @@ class FootronWindowManager:
             if client.type == ClientType.Placard:
                 logger.info("Matched existing window as placard")
                 self._placard = client
+            elif client.type == ClientType.Loader:
+                logger.info("Matched existing window as loading window")
+                self._loader = client
 
             if old_type != client.type:
                 client.geometry = self._client_geometry(
@@ -348,7 +365,7 @@ class FootronWindowManager:
                     wm_normal_hints.max_width,
                     wm_normal_hints.max_height,
                 )
-                self._raise_placard()
+                self._preserve_window_order()
             return
 
         if ev.atom == self._net_atoms[NetAtom.WmState]:
@@ -500,10 +517,13 @@ class FootronWindowManager:
         if client_type == ClientType.Placard:
             logger.info("Matched new placard window")
             self._placard = client
+        elif client_type == ClientType.Loader:
+            logger.info("Matched new loading window")
+            self._loader = client
 
         self.scale_client(client, client.geometry)
         window.map()
-        self._raise_placard()
+        self._preserve_window_order()
         self._clients[client.window.id] = client
         self._set_ewmh_clients_list()
 
@@ -529,7 +549,7 @@ class FootronWindowManager:
             f"Cleared viewport: killed {windows_killed} window(s) and skipped {windows_skipped} window(s)"
         )
         self._set_ewmh_clients_list()
-        self._raise_placard()
+        self._preserve_window_order()
 
     @staticmethod
     def _client_type_from_title(title: str) -> Optional[ClientType]:
@@ -544,6 +564,9 @@ class FootronWindowManager:
 
         if PLACARD_WINDOW_NAME in title:
             return ClientType.Placard
+
+        if LOADER_WINDOW_NAME in title:
+            return ClientType.Loader
 
         return None
 
@@ -607,7 +630,7 @@ class FootronWindowManager:
                 height=max(geometry.height, 1),
             )
             self._display.sync()
-            self._raise_placard()
+            self._preserve_window_order()
         except error.XError:
             logger.exception(f"Error while scaling client {hex(client.window.id)}")
 

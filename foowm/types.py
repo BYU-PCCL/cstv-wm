@@ -11,6 +11,7 @@ from Xlib.xobject.drawable import Window
 
 class ClientType(enum.Enum):
     Placard = enum.auto()
+    Loader = enum.auto()
     # A developer-defined "offscreen source" provides a video source to be composed into
     # a visible window, like a browser. This behavior enables a use case where a
     # developer wants to display a live GPU/CUDA-generated visualization alongside UI

@@ -4,6 +4,7 @@ WM_NAME = "foowm"
 
 OFFSCREEN_SOURCE_WINDOW_NAME = "FOOTRON_SOURCE_WINDOW"
 PLACARD_WINDOW_NAME = "FOOTRON_PLACARD"
+LOADER_WINDOW_NAME = "FOOTRON_LOADING"
 # A list of regex patterns for titles of windows that we want to dump offscreen
 # because we don't have a more elegant way to get rid of them.
 OFFSCREEN_HACK_WINDOW_PATTERNS = [
@@ -59,6 +60,23 @@ PRODUCTION_HEIGHT = 1216
 PRODUCTION_VIEWPORT_WIDTH = 2162
 PRODUCTION_PLACARD_WIDTH = PRODUCTION_WIDTH - PRODUCTION_VIEWPORT_WIDTH
 
+VIEWPORT_GEOMETRY = {
+    DisplayLayout.Fullscreen: lambda *, width, height, **_: (0, 0, width, height),
+    DisplayLayout.Center: lambda *, width, height, fullscreen, **_: (
+        ((width - PRODUCTION_WIDTH) // 2)
+        + (0 if fullscreen else PRODUCTION_PLACARD_WIDTH),
+        (height - PRODUCTION_HEIGHT) // 2,
+        PRODUCTION_WIDTH if fullscreen else PRODUCTION_VIEWPORT_WIDTH,
+        PRODUCTION_HEIGHT,
+    ),
+    DisplayLayout.Production: lambda *, fullscreen, **_: (
+        0 if fullscreen else PRODUCTION_PLACARD_WIDTH,
+        0,
+        PRODUCTION_WIDTH if fullscreen else PRODUCTION_VIEWPORT_WIDTH,
+        PRODUCTION_HEIGHT,
+    ),
+}
+
 LAYOUT_GEOMETRY = {
     ClientType.Placard: {
         DisplayLayout.Fullscreen: lambda *, width, height, **_: (
@@ -75,6 +93,7 @@ LAYOUT_GEOMETRY = {
         ),
         DisplayLayout.Production: (0, 0, PRODUCTION_PLACARD_WIDTH, PRODUCTION_HEIGHT),
     },
+    ClientType.Loader: VIEWPORT_GEOMETRY,
     ClientType.OffscreenSource: lambda *, width, geometry, **_: (
         width,
         0,
@@ -87,20 +106,5 @@ LAYOUT_GEOMETRY = {
         geometry.width,
         geometry.height,
     ),
-    None: {
-        DisplayLayout.Fullscreen: lambda *, width, height, **_: (0, 0, width, height),
-        DisplayLayout.Center: lambda *, width, height, fullscreen, **_: (
-            ((width - PRODUCTION_WIDTH) // 2)
-            + (0 if fullscreen else PRODUCTION_PLACARD_WIDTH),
-            (height - PRODUCTION_HEIGHT) // 2,
-            PRODUCTION_WIDTH if fullscreen else PRODUCTION_VIEWPORT_WIDTH,
-            PRODUCTION_HEIGHT,
-        ),
-        DisplayLayout.Production: lambda *, fullscreen, **_: (
-            0 if fullscreen else PRODUCTION_PLACARD_WIDTH,
-            0,
-            PRODUCTION_WIDTH if fullscreen else PRODUCTION_VIEWPORT_WIDTH,
-            PRODUCTION_HEIGHT,
-        ),
-    },
+    None: VIEWPORT_GEOMETRY,
 }
