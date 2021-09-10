@@ -641,7 +641,7 @@ class FootronWindowManager:
             )
             self._display.sync()
             self._preserve_window_order()
-        except error.XError:
+        except Exception:
             logger.exception(f"Error while scaling client {hex(client.window.id)}")
 
     def _window_title(self, window: Window):
