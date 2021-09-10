@@ -88,14 +88,13 @@ class FootronWindowManager:
     def fullscreen(self):
         return self._fullscreen
 
-    @fullscreen.setter
-    def fullscreen(self, fullscreen: bool):
+    def set_fullscreen(self, fullscreen: bool, after: Optional[datetime.datetime]):
         if fullscreen == self._fullscreen:
             return
 
         self._fullscreen = fullscreen
         self._setup_workarea()
-        self._update_viewport_geometry()
+        self._update_viewport_geometry(after)
 
     @property
     def clients(self):
@@ -192,10 +191,13 @@ class FootronWindowManager:
             ),
         )
 
-    def _update_viewport_geometry(self):
+    def _update_viewport_geometry(self, after: Optional[datetime.datetime]):
         windows_resized = 0
         for client in self._clients.values():
-            if client.type is not None:
+            # TODO: This is hardcoded, should use an include list
+            if client.type not in [None, ClientType.Loader]:
+                continue
+            if after and client.created_at <= after:
                 continue
 
             client.geometry = self._client_geometry(
@@ -677,7 +679,17 @@ class FootronWindowManager:
                 logger.error("Parameter 'fullscreen' should be a boolean")
                 return
 
-            self.fullscreen = fullscreen
+            after = message["after"] if "after" in message else None
+            if after is not None and not isinstance(after, int):
+                logger.error("Parameter 'after' should be an int")
+                return
+
+            self.set_fullscreen(
+                fullscreen,
+                after=datetime.datetime.fromtimestamp(after / 1000)
+                if after is not None
+                else None,
+            )
             return
 
         if message_type == "clear_viewport":
