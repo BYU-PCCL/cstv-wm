@@ -31,7 +31,7 @@ from .types import (
     NetAtom,
     WmAtom,
     ExtendedWMNormalHints,
-    DisplayLayout,
+    DisplayScenario, DisplayLayout,
 )
 from .util import debug_log_size_hints, debug_log_window_geometry, debug_value_change
 
@@ -40,7 +40,7 @@ logger = logging.getLogger(WM_NAME)
 
 class FootronWindowManager:
     message_queue: queue.Queue
-    _fullscreen: bool
+    _layout: DisplayLayout
     _display: Display
     _screen: Screen
     _root: Window
@@ -54,14 +54,14 @@ class FootronWindowManager:
 
     _debug_logging: bool
 
-    _display_layout: DisplayLayout
+    _display_scenario: DisplayScenario
     _placard: Optional[Client]
     _loader: Optional[Client]
     _clients: Dict[int, Client]
 
-    def __init__(self, display_layout: DisplayLayout):
+    def __init__(self, display_scenario: DisplayScenario):
         self.message_queue = queue.Queue()
-        self._fullscreen = False
+        self._layout = DisplayLayout.Wide
         self._net_atoms = {}
         self._wm_atoms = {}
         self._event_handlers = {
@@ -75,7 +75,7 @@ class FootronWindowManager:
 
         self._debug_logging = logging.root.level < logging.INFO
 
-        self._display_layout = display_layout
+        self._display_scenario = display_scenario
         self._placard = None
         self._loader = None
         self._clients = {}
@@ -85,14 +85,14 @@ class FootronWindowManager:
         self._loop()
 
     @property
-    def fullscreen(self):
-        return self._fullscreen
+    def layout(self):
+        return self._layout
 
-    def set_fullscreen(self, fullscreen: bool, after: Optional[datetime.datetime]):
-        if fullscreen == self._fullscreen:
+    def set_layout(self, layout: DisplayLayout, after: Optional[datetime.datetime]):
+        if layout == self._layout:
             return
 
-        self._fullscreen = fullscreen
+        self._layout = layout
         self._setup_workarea()
         self._update_viewport_geometry(after)
 
@@ -160,8 +160,8 @@ class FootronWindowManager:
             Xatom.CARDINAL,
             32,
             list(
-                LAYOUT_GEOMETRY[None][DisplayLayout.Production](
-                    fullscreen=self._fullscreen
+                LAYOUT_GEOMETRY[None][DisplayScenario.Production](
+                    layout=self._layout
                 )
             ),
         )
@@ -185,8 +185,8 @@ class FootronWindowManager:
             Xatom.CARDINAL,
             32,
             list(
-                LAYOUT_GEOMETRY[None][DisplayLayout.Production](
-                    fullscreen=self._fullscreen
+                LAYOUT_GEOMETRY[None][DisplayScenario.Production](
+                    layout=self._layout
                 )
             ),
         )
@@ -603,7 +603,7 @@ class FootronWindowManager:
         geometry_factory = LAYOUT_GEOMETRY[client_type]
 
         if isinstance(geometry_factory, dict):
-            geometry_factory = geometry_factory[self._display_layout]
+            geometry_factory = geometry_factory[self._display_scenario]
 
         if isinstance(geometry_factory, tuple):
             return WindowGeometry(*geometry_factory)
@@ -613,7 +613,7 @@ class FootronWindowManager:
                 width=self._width,
                 height=self._height,
                 geometry=desired_geometry,
-                fullscreen=self._fullscreen,
+                layout=self._layout,
             )
         )
 
@@ -669,14 +669,14 @@ class FootronWindowManager:
     def _handle_message(self, message: Dict):
         message_type = message["type"]
         logging.debug(f"Processing message of type '{message_type}'")
-        if message_type == "fullscreen":
-            if "fullscreen" not in message:
-                logger.error("Required 'fullscreen' parameter not in message")
+        if message_type == "layout":
+            if "layout" not in message:
+                logger.error("Required 'layout' parameter not in message")
                 return
 
-            fullscreen = message["fullscreen"]
-            if not isinstance(fullscreen, bool):
-                logger.error("Parameter 'fullscreen' should be a boolean")
+            layout = message["layout"]
+            if not isinstance(layout, str):
+                logger.error("Parameter 'layout' should be a string")
                 return
 
             after = message["after"] if "after" in message else None
@@ -684,8 +684,8 @@ class FootronWindowManager:
                 logger.error("Parameter 'after' should be an int")
                 return
 
-            self.set_fullscreen(
-                fullscreen,
+            self.set_layout(
+                DisplayLayout(layout),
                 after=datetime.datetime.fromtimestamp(after / 1000)
                 if after is not None
                 else None,

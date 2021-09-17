@@ -25,6 +25,14 @@ class ClientType(enum.Enum):
 
 
 class DisplayLayout(enum.Enum):
+    """Dynamic layout of windows specified at runtime by controller"""
+    Full = "full"
+    Wide = "wide"
+    Hd = "hd"
+
+
+class DisplayScenario(enum.Enum):
+    """Static layout of entire display set once at startup"""
     Fullscreen = "fullscreen"
     Center = "center"
     Production = "production"

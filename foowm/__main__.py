@@ -4,7 +4,7 @@ import threading
 
 import zmq
 
-from .types import DisplayLayout
+from .types import DisplayScenario
 from .wm import FootronWindowManager
 
 
@@ -17,10 +17,10 @@ def _log_level(arg):
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    "--layout",
-    help="set display layout ('fullscreen' (default), 'production')",
-    type=DisplayLayout,
-    default=DisplayLayout.Fullscreen,
+    "--scenario",
+    help="set display scenario ('center' (default), 'production', 'fullscreen')",
+    type=DisplayScenario,
+    default=DisplayScenario.Center,
 )
 
 log_level_group = parser.add_mutually_exclusive_group()
@@ -57,7 +57,7 @@ def messaging_loop(wm: FootronWindowManager):
             logger.exception(e)
 
 
-wm = FootronWindowManager(args.layout)
+wm = FootronWindowManager(args.scenario)
 messaging_thread = threading.Thread(target=messaging_loop, args=(wm,))
 messaging_thread.start()
 wm.start()

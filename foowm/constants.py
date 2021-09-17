@@ -1,4 +1,4 @@
-from .types import NetAtom, WmAtom, ClientType, DisplayLayout
+from .types import NetAtom, WmAtom, ClientType, DisplayScenario, DisplayLayout
 
 WM_NAME = "foowm"
 
@@ -61,44 +61,58 @@ DEFAULT_CLEAR_TYPES = [
     None,
 ]
 
-PRODUCTION_WIDTH = 2736
-PRODUCTION_HEIGHT = 1216
+PRODUCTION_DISPLAY_WIDTH = 2736
 # Width required to make a 16:9 box
-PRODUCTION_VIEWPORT_WIDTH = 2162
-PRODUCTION_PLACARD_WIDTH = PRODUCTION_WIDTH - PRODUCTION_VIEWPORT_WIDTH
+PRODUCTION_HD_WIDTH = 2162
+PRODUCTION_WIDE_WIDTH = 2392
+
+PRODUCTION_HEIGHT = 1216
+PRODUCTION_PLACARD_WIDTH = PRODUCTION_DISPLAY_WIDTH - PRODUCTION_HD_WIDTH
+
+PRODUCTION_LAYOUT_WIDTHS = {
+    DisplayLayout.Hd: PRODUCTION_HD_WIDTH,
+    DisplayLayout.Wide: PRODUCTION_WIDE_WIDTH,
+    DisplayLayout.Full: PRODUCTION_DISPLAY_WIDTH,
+}
+
+PRODUCTION_PLACARD_OFFSETS = {
+    DisplayLayout.Hd: PRODUCTION_PLACARD_WIDTH,
+    DisplayLayout.Wide: 344,
+    DisplayLayout.Full: 0,
+}
 
 VIEWPORT_GEOMETRY = {
-    DisplayLayout.Fullscreen: lambda *, width, height, **_: (0, 0, width, height),
-    DisplayLayout.Center: lambda *, width, height, fullscreen, **_: (
-        ((width - PRODUCTION_WIDTH) // 2)
-        + (0 if fullscreen else PRODUCTION_PLACARD_WIDTH),
+    DisplayScenario.Fullscreen: lambda *, width, height, **_: (0, 0, width, height),
+    DisplayScenario.Center: lambda *, width, height, layout, **_: (
+        ((width - PRODUCTION_DISPLAY_WIDTH) // 2)
+        + (PRODUCTION_PLACARD_OFFSETS[layout]),
         (height - PRODUCTION_HEIGHT) // 2,
-        PRODUCTION_WIDTH if fullscreen else PRODUCTION_VIEWPORT_WIDTH,
+        PRODUCTION_LAYOUT_WIDTHS[layout],
         PRODUCTION_HEIGHT,
     ),
-    DisplayLayout.Production: lambda *, fullscreen, **_: (
-        0 if fullscreen else PRODUCTION_PLACARD_WIDTH,
+    DisplayScenario.Production: lambda *, layout, **_: (
+        0 if layout else PRODUCTION_PLACARD_WIDTH,
         0,
-        PRODUCTION_WIDTH if fullscreen else PRODUCTION_VIEWPORT_WIDTH,
+        PRODUCTION_LAYOUT_WIDTHS[layout],
         PRODUCTION_HEIGHT,
     ),
 }
 
 LAYOUT_GEOMETRY = {
     ClientType.Placard: {
-        DisplayLayout.Fullscreen: lambda *, width, height, **_: (
+        DisplayScenario.Fullscreen: lambda *, width, height, **_: (
             0,
             0,
             int(width * 0.2),
             height,
         ),
-        DisplayLayout.Center: lambda *, width, height, **_: (
-            (width - PRODUCTION_WIDTH) // 2,
+        DisplayScenario.Center: lambda *, width, height, **_: (
+            (width - PRODUCTION_DISPLAY_WIDTH) // 2,
             (height - PRODUCTION_HEIGHT) // 2,
             PRODUCTION_PLACARD_WIDTH,
             PRODUCTION_HEIGHT,
         ),
-        DisplayLayout.Production: (0, 0, PRODUCTION_PLACARD_WIDTH, PRODUCTION_HEIGHT),
+        DisplayScenario.Production: (0, 0, PRODUCTION_PLACARD_WIDTH, PRODUCTION_HEIGHT),
     },
     ClientType.Loader: VIEWPORT_GEOMETRY,
     ClientType.OffscreenSource: lambda *, width, geometry, **_: (
