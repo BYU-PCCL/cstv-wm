@@ -91,7 +91,7 @@ VIEWPORT_GEOMETRY = {
         PRODUCTION_HEIGHT,
     ),
     DisplayScenario.Production: lambda *, layout, **_: (
-        0 if layout else PRODUCTION_PLACARD_WIDTH,
+        PRODUCTION_PLACARD_OFFSETS[layout],
         0,
         PRODUCTION_LAYOUT_WIDTHS[layout],
         PRODUCTION_HEIGHT,
