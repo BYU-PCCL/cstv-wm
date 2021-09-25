@@ -223,7 +223,7 @@ class FootronWindowManager:
             return
 
         logger.debug("Raising loading window...")
-        self._loader.window.raise_window()
+        self._loader.parent.raise_window()
         self._display.sync()
 
     def _preserve_window_order(self):
