@@ -668,6 +668,8 @@ class FootronWindowManager:
                 height=max(geometry.height, 1),
             )
             client.window.configure(
+                x=0,
+                y=0,
                 width=max(geometry.width, 1),
                 height=max(geometry.height, 1),
             )
