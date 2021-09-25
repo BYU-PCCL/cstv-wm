@@ -662,12 +662,12 @@ class FootronWindowManager:
 
         try:
             client.parent.configure(
+                x=geometry.x,
+                y=geometry.y,
                 width=max(geometry.width, 1),
                 height=max(geometry.height, 1),
             )
             client.window.configure(
-                x=geometry.x,
-                y=geometry.y,
                 width=max(geometry.width, 1),
                 height=max(geometry.height, 1),
             )
