@@ -49,6 +49,7 @@ class FootronWindowManager:
     _event_handlers: Dict[int, Callable[[Any], None]]
     _net_atoms: Dict[str, int]
     _wm_atoms: Dict[str, int]
+    _xembed_info_atom: Optional[int]
     _utf8_atom: int
     _width: int
     _height: int
@@ -66,6 +67,7 @@ class FootronWindowManager:
         self._layout = DisplayLayout.Wide
         self._net_atoms = {}
         self._wm_atoms = {}
+        self._xembed_info_atom = None
         self._event_handlers = {
             X.MapRequest: self._handle_map_request,
             X.UnmapNotify: self._handle_unmap_notify,
@@ -145,6 +147,7 @@ class FootronWindowManager:
             self._net_atoms[atom_str] = self._display.intern_atom(atom_str)
         for atom_str in SUPPORTED_WM_ATOMS:
             self._wm_atoms[atom_str] = self._display.intern_atom(atom_str)
+        self._xembed_info_atom = self._display.intern_atom("_XEMBED_INFO")
 
         self._check.change_property(
             self._net_atoms[NetAtom.WmCheck], Xatom.WINDOW, 32, [self._check.id]
@@ -529,10 +532,16 @@ class FootronWindowManager:
             X.CopyFromParent,
             X.CopyFromParent,
         )
-        parent.map()
 
+        window.change_property(
+            self._xembed_info_atom, self._xembed_info_atom, 32, [0, 1]
+        )
+        window.change_attributes(override_redirect=True)
+        self._display.sync()
         window.reparent(parent, 0, 0)
+        parent.map()
         self._client_parents.add(parent.id)
+        self._display.sync()
 
         logger.debug(f"ID of parent for window {hex(window.id)} is {hex(parent.id)}")
 
@@ -556,6 +565,7 @@ class FootronWindowManager:
 
         self.scale_client(client, client.geometry)
         window.map()
+        self._display.sync()
         self._preserve_window_order()
         self._clients[client.window.id] = client
         self._set_ewmh_clients_list()
