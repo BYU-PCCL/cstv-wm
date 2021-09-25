@@ -618,7 +618,7 @@ class FootronWindowManager:
         )
 
     def _set_ewmh_clients_list(self):
-        new_clients = map(lambda a: a.parent.id, self._clients.items())
+        new_clients = self._clients.keys()
         logger.debug(
             f"Updating _NET_CLIENT_LIST on root window: {list(map(hex, new_clients))}"
         )
