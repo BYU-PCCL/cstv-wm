@@ -569,6 +569,7 @@ class FootronWindowManager:
             logger.debug(
                 f"ID of parent for window {hex(window.id)} is {hex(parent.id)}"
             )
+            self._display.sync()
         else:
             logger.debug("Not creating parent for placard client")
 
