@@ -619,9 +619,8 @@ class FootronWindowManager:
                 windows_skipped += 1
                 continue
 
-            client.window.kill_client()
-            # TODO: Do we need to remove these clients? Will they unmap themselves?
-            del self._clients[key]
+            # Killed client will request unmap, which will kill parent if one exists
+            client.target.kill_client()
             windows_killed += 1
         logger.debug(
             f"Cleared viewport: killed {windows_killed} window(s) and skipped {windows_skipped} window(s)"
