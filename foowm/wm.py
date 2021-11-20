@@ -215,7 +215,7 @@ class FootronWindowManager:
             return
 
         logger.debug("Raising placard...")
-        self._placard.parent.raise_window()
+        self._placard.window.raise_window()
         self._display.sync()
 
     def _raise_loader(self):
@@ -223,7 +223,7 @@ class FootronWindowManager:
             return
 
         logger.debug("Raising loading window...")
-        self._loader.parent.raise_window()
+        self._loader.window.raise_window()
         self._display.sync()
 
     def _preserve_window_order(self):
@@ -263,6 +263,13 @@ class FootronWindowManager:
             )
             return
 
+        if client.ignore_unmaps > 0:
+            logger.debug(
+                f"ignore_unmaps = {client.ignore_unmaps}, ignoring unmap event for window with ID {hex(ev.window.id)}"
+            )
+            client.ignore_unmaps -= 1
+            return
+
         if client.type == ClientType.Placard:
             logger.info("Placard window is closing")
             self._placard = None
@@ -270,8 +277,9 @@ class FootronWindowManager:
             logger.info("Loading window is closing")
             self._loader = None
 
-        self._client_parents.remove(client.parent.id)
-        client.parent.unmap()
+        if client.parent:
+            self._client_parents.remove(client.parent.id)
+            client.parent.unmap()
         del self._clients[window_id]
         self._set_ewmh_clients_list()
         self._preserve_window_order()
@@ -346,7 +354,7 @@ class FootronWindowManager:
             logger.debug(f"Handling title update on window {hex(client.window.id)}:")
 
             old_title = client.title
-            client.title = self._window_title(client.window)
+            client.title = self._window_title(client.target)
             if self._debug_logging:
                 debug_value_change(logger.debug, "title", old_title, client.title)
 
@@ -357,6 +365,16 @@ class FootronWindowManager:
 
             if client.type == ClientType.Placard:
                 logger.info("Matched existing window as placard")
+                if client.parent:
+                    logger.debug(
+                        "Existing placard window had parent, reparenting to root"
+                    )
+                    client.ignore_unmaps += 1
+                    client.target.reparent(self._root, 0, 0)
+                    client.parent.unmap()
+                    self._client_parents.remove(client.parent.id)
+                    client.parent = None
+                    self._display.sync()
                 self._placard = client
             elif client.type == ClientType.Loader:
                 logger.info("Matched existing window as loading window")
@@ -524,26 +542,31 @@ class FootronWindowManager:
             logger.debug(f"Actual geometry for new window {hex(window.id)}:")
             debug_log_window_geometry(logger.debug, geometry)
 
-        parent = self._root.create_window(
-            0,
-            0,
-            1,
-            1,
-            X.CopyFromParent,
-            X.CopyFromParent,
-        )
-
         window.change_property(
             self._xembed_info_atom, self._xembed_info_atom, 32, [0, 1]
         )
         window.change_attributes(override_redirect=True)
         self._display.sync()
-        window.reparent(parent, 0, 0)
-        parent.map()
-        self._client_parents.add(parent.id)
-        self._display.sync()
 
-        logger.debug(f"ID of parent for window {hex(window.id)} is {hex(parent.id)}")
+        parent = None
+        if client_type != ClientType.Placard:
+            parent = self._root.create_window(
+                0,
+                0,
+                1,
+                1,
+                X.CopyFromParent,
+                X.CopyFromParent,
+            )
+            window.reparent(parent, 0, 0)
+            parent.map()
+            self._client_parents.add(parent.id)
+            self._display.sync()
+            logger.debug(
+                f"ID of parent for window {hex(window.id)} is {hex(parent.id)}"
+            )
+        else:
+            logger.debug("Not creating parent for placard client")
 
         client = Client(
             window,
@@ -567,7 +590,7 @@ class FootronWindowManager:
         window.map()
         self._display.sync()
         self._preserve_window_order()
-        self._clients[client.window.id] = client
+        self._clients[client.target.id] = client
         self._set_ewmh_clients_list()
 
     def clear_viewport(
@@ -654,7 +677,7 @@ class FootronWindowManager:
         )
 
     def _set_ewmh_clients_list(self):
-        new_clients = map(lambda a: a.parent.id, self._clients.items())
+        new_clients = map(lambda a: a.window.id, self._clients.values())
         logger.debug(
             f"Updating _NET_CLIENT_LIST on root window: {list(map(hex, new_clients))}"
         )
@@ -671,15 +694,22 @@ class FootronWindowManager:
             debug_log_window_geometry(logger.debug, geometry)
 
         try:
-            client.parent.configure(
-                x=geometry.x,
-                y=geometry.y,
-                width=max(geometry.width, 1),
-                height=max(geometry.height, 1),
-            )
-            client.window.configure(
-                x=0,
-                y=0,
+            if client.parent:
+                x = 0
+                y = 0
+                client.parent.configure(
+                    x=geometry.x,
+                    y=geometry.y,
+                    width=max(geometry.width, 1),
+                    height=max(geometry.height, 1),
+                )
+            else:
+                x = geometry.x
+                y = geometry.x
+
+            client.target.configure(
+                x=x,
+                y=y,
                 width=max(geometry.width, 1),
                 height=max(geometry.height, 1),
             )

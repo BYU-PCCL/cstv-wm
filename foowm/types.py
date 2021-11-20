@@ -48,7 +48,7 @@ class WindowGeometry:
 
 @dataclasses.dataclass
 class Client:
-    window: Window
+    target: Window
     parent: Window
     geometry: WindowGeometry
     desired_geometry: WindowGeometry
@@ -56,6 +56,20 @@ class Client:
     type: Optional[ClientType]
     floating: bool
     created_at: datetime.datetime
+    # This is literally how openbox handles reparenting unmap requests
+    ignore_unmaps: int = 0
+
+    # @vinhowe: Note that this is basically a workaround to allow us not to reparent the
+    # placard, only because python-xlib doesn't appear to have explicit support for
+    # everything we need to create new windows with transparent backgrounds.
+    # The "right" way to solve this would be to figure out how create transparent window
+    # backgrounds and just reparent everything.
+    @property
+    def window(self):
+        if not self.parent:
+            return self.target
+
+        return self.parent
 
 
 # Apparently python-xlib won't give us access to x and y on the standard
