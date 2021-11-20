@@ -216,7 +216,6 @@ class FootronWindowManager:
 
         logger.debug("Raising placard...")
         self._placard.window.raise_window()
-        self._display.sync()
 
     def _raise_loader(self):
         if not self._loader:
@@ -224,11 +223,11 @@ class FootronWindowManager:
 
         logger.debug("Raising loading window...")
         self._loader.window.raise_window()
-        self._display.sync()
 
     def _preserve_window_order(self):
         self._raise_loader()
         self._raise_placard()
+        self._display.sync()
 
     def _handle_map_request(self, ev: event.MapRequest):
         # Background on mapping and unmapping (last paragraph):
@@ -546,7 +545,6 @@ class FootronWindowManager:
             self._xembed_info_atom, self._xembed_info_atom, 32, [0, 1]
         )
         window.change_attributes(override_redirect=True)
-        self._display.sync()
 
         colormap = self._screen.default_colormap
         black_pixel = colormap.alloc_named_color("black").pixel
@@ -568,7 +566,6 @@ class FootronWindowManager:
             window.reparent(parent, 0, 0)
             parent.map()
             self._client_parents.add(parent.id)
-            self._display.sync()
             logger.debug(
                 f"ID of parent for window {hex(window.id)} is {hex(parent.id)}"
             )
@@ -595,7 +592,6 @@ class FootronWindowManager:
 
         self.scale_client(client, client.geometry)
         window.map()
-        self._display.sync()
         self._preserve_window_order()
         self._clients[client.target.id] = client
         self._set_ewmh_clients_list()
@@ -719,7 +715,8 @@ class FootronWindowManager:
                 width=max(geometry.width, 1),
                 height=max(geometry.height, 1),
             )
-            self._display.sync()
+            # Let preserve_window_order handle display syncing so we don't get any
+            # flickering
             self._preserve_window_order()
         except Exception:
             logger.exception(f"Error while scaling client {hex(client.window.id)}")
@@ -796,7 +793,6 @@ class FootronWindowManager:
                 break
 
     def _loop(self):
-        self._display.sync()
         while True:
             ev = self._display.next_event()
             if ev.type not in self._event_handlers:
