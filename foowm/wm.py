@@ -707,7 +707,7 @@ class FootronWindowManager:
                 )
             else:
                 x = geometry.x
-                y = geometry.x
+                y = geometry.y
 
             client.target.configure(
                 x=x,
