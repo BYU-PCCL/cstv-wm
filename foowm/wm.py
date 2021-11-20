@@ -548,6 +548,9 @@ class FootronWindowManager:
         window.change_attributes(override_redirect=True)
         self._display.sync()
 
+        colormap = self._screen.default_colormap
+        black_pixel = colormap.alloc_named_color("black").pixel
+
         parent = None
         if client_type != ClientType.Placard:
             parent = self._root.create_window(
@@ -556,7 +559,11 @@ class FootronWindowManager:
                 1,
                 1,
                 X.CopyFromParent,
-                X.CopyFromParent,
+                self._screen.root_depth,
+                X.InputOutput,
+                background_pixel=black_pixel,
+                # TODO: Not sure if we need this
+                override_redirect=True
             )
             window.reparent(parent, 0, 0)
             parent.map()
