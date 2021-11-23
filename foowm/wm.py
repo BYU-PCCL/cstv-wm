@@ -2,7 +2,7 @@ import datetime
 import logging
 import queue
 import re
-from typing import Dict, Callable, Optional, Any, List
+from typing import Dict, Callable, Optional, Any, List, Set
 
 from Xlib.display import Display
 from Xlib import X, error, Xatom, Xutil
@@ -31,7 +31,8 @@ from .types import (
     NetAtom,
     WmAtom,
     ExtendedWMNormalHints,
-    DisplayScenario, DisplayLayout,
+    DisplayScenario,
+    DisplayLayout,
 )
 from .util import debug_log_size_hints, debug_log_window_geometry, debug_value_change
 
@@ -48,6 +49,7 @@ class FootronWindowManager:
     _event_handlers: Dict[int, Callable[[Any], None]]
     _net_atoms: Dict[str, int]
     _wm_atoms: Dict[str, int]
+    _xembed_info_atom: Optional[int]
     _utf8_atom: int
     _width: int
     _height: int
@@ -58,12 +60,14 @@ class FootronWindowManager:
     _placard: Optional[Client]
     _loader: Optional[Client]
     _clients: Dict[int, Client]
+    _client_parents: Set[int]
 
     def __init__(self, display_scenario: DisplayScenario):
         self.message_queue = queue.Queue()
         self._layout = DisplayLayout.Wide
         self._net_atoms = {}
         self._wm_atoms = {}
+        self._xembed_info_atom = None
         self._event_handlers = {
             X.MapRequest: self._handle_map_request,
             X.UnmapNotify: self._handle_unmap_notify,
@@ -79,6 +83,7 @@ class FootronWindowManager:
         self._placard = None
         self._loader = None
         self._clients = {}
+        self._client_parents = set()
 
     def start(self):
         self._setup()
@@ -142,6 +147,7 @@ class FootronWindowManager:
             self._net_atoms[atom_str] = self._display.intern_atom(atom_str)
         for atom_str in SUPPORTED_WM_ATOMS:
             self._wm_atoms[atom_str] = self._display.intern_atom(atom_str)
+        self._xembed_info_atom = self._display.intern_atom("_XEMBED_INFO")
 
         self._check.change_property(
             self._net_atoms[NetAtom.WmCheck], Xatom.WINDOW, 32, [self._check.id]
@@ -160,9 +166,7 @@ class FootronWindowManager:
             Xatom.CARDINAL,
             32,
             list(
-                LAYOUT_GEOMETRY[None][DisplayScenario.Production](
-                    layout=self._layout
-                )
+                LAYOUT_GEOMETRY[None][DisplayScenario.Production](layout=self._layout)
             ),
         )
         # Set supported EWMH atoms
@@ -185,9 +189,7 @@ class FootronWindowManager:
             Xatom.CARDINAL,
             32,
             list(
-                LAYOUT_GEOMETRY[None][DisplayScenario.Production](
-                    layout=self._layout
-                )
+                LAYOUT_GEOMETRY[None][DisplayScenario.Production](layout=self._layout)
             ),
         )
 
@@ -214,7 +216,6 @@ class FootronWindowManager:
 
         logger.debug("Raising placard...")
         self._placard.window.raise_window()
-        self._display.sync()
 
     def _raise_loader(self):
         if not self._loader:
@@ -222,11 +223,11 @@ class FootronWindowManager:
 
         logger.debug("Raising loading window...")
         self._loader.window.raise_window()
-        self._display.sync()
 
     def _preserve_window_order(self):
         self._raise_loader()
         self._raise_placard()
+        self._display.sync()
 
     def _handle_map_request(self, ev: event.MapRequest):
         # Background on mapping and unmapping (last paragraph):
@@ -241,7 +242,7 @@ class FootronWindowManager:
             )
             return
 
-        if not attrs or attrs.override_redirect:
+        if not attrs or attrs.override_redirect or ev.window.id in self._client_parents:
             return
 
         self._manage_new_window(ev.window)
@@ -249,6 +250,9 @@ class FootronWindowManager:
     def _handle_unmap_notify(self, ev: event.UnmapNotify):
         window_id = ev.window.id
         logger.debug(f"Handling UnmapNotify event for window {hex(window_id)}")
+
+        if window_id in self._client_parents:
+            return
 
         try:
             client = self._clients[window_id]
@@ -258,6 +262,13 @@ class FootronWindowManager:
             )
             return
 
+        if client.ignore_unmaps > 0:
+            logger.debug(
+                f"ignore_unmaps = {client.ignore_unmaps}, ignoring unmap event for window with ID {hex(ev.window.id)}"
+            )
+            client.ignore_unmaps -= 1
+            return
+
         if client.type == ClientType.Placard:
             logger.info("Placard window is closing")
             self._placard = None
@@ -265,6 +276,9 @@ class FootronWindowManager:
             logger.info("Loading window is closing")
             self._loader = None
 
+        if client.parent:
+            self._client_parents.remove(client.parent.id)
+            client.parent.unmap()
         del self._clients[window_id]
         self._set_ewmh_clients_list()
         self._preserve_window_order()
@@ -295,6 +309,9 @@ class FootronWindowManager:
     def _handle_configure_request(self, ev: event.ConfigureRequest):
         logger.debug(f"Handling ConfigureRequest event for window {hex(ev.window.id)}")
 
+        if ev.window.id in self._client_parents:
+            return
+
         try:
             client = self._clients[ev.window.id]
         except KeyError:
@@ -317,6 +334,9 @@ class FootronWindowManager:
     def _handle_property_notify(self, ev: event.PropertyNotify):
         logger.debug(f"Handling PropertyNotify event for window {hex(ev.window.id)}")
 
+        if ev.window.id in self._client_parents:
+            return
+
         try:
             client = self._clients[ev.window.id]
         except KeyError:
@@ -333,7 +353,7 @@ class FootronWindowManager:
             logger.debug(f"Handling title update on window {hex(client.window.id)}:")
 
             old_title = client.title
-            client.title = self._window_title(client.window)
+            client.title = self._window_title(client.target)
             if self._debug_logging:
                 debug_value_change(logger.debug, "title", old_title, client.title)
 
@@ -344,6 +364,16 @@ class FootronWindowManager:
 
             if client.type == ClientType.Placard:
                 logger.info("Matched existing window as placard")
+                if client.parent:
+                    logger.debug(
+                        "Existing placard window had parent, reparenting to root"
+                    )
+                    client.ignore_unmaps += 1
+                    client.target.reparent(self._root, 0, 0)
+                    client.parent.unmap()
+                    self._client_parents.remove(client.parent.id)
+                    client.parent = None
+                    self._display.sync()
                 self._placard = client
             elif client.type == ClientType.Loader:
                 logger.info("Matched existing window as loading window")
@@ -511,8 +541,41 @@ class FootronWindowManager:
             logger.debug(f"Actual geometry for new window {hex(window.id)}:")
             debug_log_window_geometry(logger.debug, geometry)
 
+        window.change_property(
+            self._xembed_info_atom, self._xembed_info_atom, 32, [0, 1]
+        )
+        window.change_attributes(override_redirect=True)
+
+        colormap = self._screen.default_colormap
+        black_pixel = colormap.alloc_named_color("black").pixel
+
+        parent = None
+        if client_type != ClientType.Placard:
+            parent = self._root.create_window(
+                0,
+                0,
+                1,
+                1,
+                X.CopyFromParent,
+                self._screen.root_depth,
+                X.InputOutput,
+                background_pixel=black_pixel,
+                # TODO: Not sure if we need this
+                override_redirect=True
+            )
+            window.reparent(parent, 0, 0)
+            parent.map()
+            self._client_parents.add(parent.id)
+            logger.debug(
+                f"ID of parent for window {hex(window.id)} is {hex(parent.id)}"
+            )
+            self._display.sync()
+        else:
+            logger.debug("Not creating parent for placard client")
+
         client = Client(
             window,
+            parent,
             geometry,
             desired_geometry,
             title,
@@ -531,7 +594,7 @@ class FootronWindowManager:
         self.scale_client(client, client.geometry)
         window.map()
         self._preserve_window_order()
-        self._clients[client.window.id] = client
+        self._clients[client.target.id] = client
         self._set_ewmh_clients_list()
 
     def clear_viewport(
@@ -553,9 +616,8 @@ class FootronWindowManager:
                 windows_skipped += 1
                 continue
 
-            client.window.kill_client()
-            # TODO: Do we need to remove these clients? Will they unmap themselves?
-            del self._clients[key]
+            # Killed client will request unmap, which will kill parent if one exists
+            client.target.kill_client()
             windows_killed += 1
         logger.debug(
             f"Cleared viewport: killed {windows_killed} window(s) and skipped {windows_skipped} window(s)"
@@ -618,7 +680,7 @@ class FootronWindowManager:
         )
 
     def _set_ewmh_clients_list(self):
-        new_clients = self._clients.keys()
+        new_clients = map(lambda a: a.window.id, self._clients.values())
         logger.debug(
             f"Updating _NET_CLIENT_LIST on root window: {list(map(hex, new_clients))}"
         )
@@ -635,13 +697,27 @@ class FootronWindowManager:
             debug_log_window_geometry(logger.debug, geometry)
 
         try:
-            client.window.configure(
-                x=geometry.x,
-                y=geometry.y,
+            if client.parent:
+                x = 0
+                y = 0
+                client.parent.configure(
+                    x=geometry.x,
+                    y=geometry.y,
+                    width=max(geometry.width, 1),
+                    height=max(geometry.height, 1),
+                )
+            else:
+                x = geometry.x
+                y = geometry.y
+
+            client.target.configure(
+                x=x,
+                y=y,
                 width=max(geometry.width, 1),
                 height=max(geometry.height, 1),
             )
-            self._display.sync()
+            # Let preserve_window_order handle display syncing so we don't get any
+            # flickering
             self._preserve_window_order()
         except Exception:
             logger.exception(f"Error while scaling client {hex(client.window.id)}")
@@ -718,7 +794,6 @@ class FootronWindowManager:
                 break
 
     def _loop(self):
-        self._display.sync()
         while True:
             ev = self._display.next_event()
             if ev.type not in self._event_handlers:
