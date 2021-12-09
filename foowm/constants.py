@@ -103,13 +103,13 @@ LAYOUT_GEOMETRY = {
         DisplayScenario.Fullscreen: lambda *, width, height, **_: (
             0,
             0,
-            int(width * 0.2),
+            PRODUCTION_DISPLAY_WIDTH,
             height,
         ),
         DisplayScenario.Center: lambda *, width, height, **_: (
             (width - PRODUCTION_DISPLAY_WIDTH) // 2,
             (height - PRODUCTION_HEIGHT) // 2,
-            PRODUCTION_PLACARD_WIDTH,
+            PRODUCTION_DISPLAY_WIDTH,
             PRODUCTION_HEIGHT,
         ),
         DisplayScenario.Production: (0, 0, PRODUCTION_PLACARD_WIDTH, PRODUCTION_HEIGHT),
