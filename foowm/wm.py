@@ -23,6 +23,7 @@ from .constants import (
     FLOATING_WINDOW_STATES,
     LOADER_WINDOW_NAME,
     DEFAULT_CLEAR_TYPES,
+    EXPERIENCE_VIEWPORT_WINDOW_NAME,
 )
 from .types import (
     Client,
@@ -40,35 +41,22 @@ logger = logging.getLogger(WM_NAME)
 
 
 class FootronWindowManager:
-    message_queue: queue.Queue
-    _layout: DisplayLayout
-    _display: Display
-    _screen: Screen
-    _root: Window
-    _check: Window
-    _event_handlers: Dict[int, Callable[[Any], None]]
-    _net_atoms: Dict[str, int]
-    _wm_atoms: Dict[str, int]
-    _xembed_info_atom: Optional[int]
-    _utf8_atom: int
-    _width: int
-    _height: int
-
-    _debug_logging: bool
-
-    _display_scenario: DisplayScenario
-    _placard: Optional[Client]
-    _loader: Optional[Client]
-    _clients: Dict[int, Client]
-    _client_parents: Set[int]
-
     def __init__(self, display_scenario: DisplayScenario):
-        self.message_queue = queue.Queue()
-        self._layout = DisplayLayout.Wide
-        self._net_atoms = {}
-        self._wm_atoms = {}
-        self._xembed_info_atom = None
-        self._event_handlers = {
+        self._display: Display
+        self._screen: Screen
+        self._root: Window
+        self._check: Window
+        self._experience_viewport: Window
+        self._xembed_info_atom: int
+        self._utf8_atom: int
+        self._width: int
+        self._height: int
+
+        self.message_queue: queue.Queue = queue.Queue()
+        self._layout: DisplayLayout = DisplayLayout.Full
+        self._net_atoms: Dict[str, int] = {}
+        self._wm_atoms: Dict[str, int] = {}
+        self._event_handlers: Dict[int, Callable[[Any], None]] = {
             X.MapRequest: self._handle_map_request,
             X.UnmapNotify: self._handle_unmap_notify,
             X.ConfigureNotify: self._handle_configure_notify,
@@ -77,13 +65,13 @@ class FootronWindowManager:
             X.EnterNotify: self._handle_enter_notify,
         }
 
-        self._debug_logging = logging.root.level < logging.INFO
+        self._debug_logging: bool = logging.root.level < logging.INFO
 
-        self._display_scenario = display_scenario
-        self._placard = None
-        self._loader = None
-        self._clients = {}
-        self._client_parents = set()
+        self._display_scenario: DisplayScenario = display_scenario
+        self._placard: Optional[Client] = None
+        self._loader: Optional[Client] = None
+        self._clients: Dict[int, Client] = {}
+        self._client_parents: Set[int] = set()
 
     def start(self):
         self._setup()
@@ -120,8 +108,8 @@ class FootronWindowManager:
     def _setup(self):
         logger.debug("Starting setup")
 
-        # Based on berry's setup method in wm.c (
-        # https://github.com/JLErvin/berry/blob/master/wm.c) except that we don't
+        # Based on berry's setup method in wm.c
+        # (https://github.com/JLErvin/berry/blob/master/wm.c) except that we don't
         # handle input or focus because our display doesn't support mouse or touch
         # input
         self._display = Display()
@@ -137,11 +125,15 @@ class FootronWindowManager:
             | X.ButtonPressMask
         )
 
-        # Presumably X.CopyFromParent here will set this window to use root's depth,
-        # which seems fine. If we have an issue with this somehow, we might need to
-        # mess with the depth parameter, because I just guessed.
-        self._check = self._root.create_window(0, 0, 1, 1, 0, X.CopyFromParent)
+        self._setup_atoms()
+        self._setup_check_window()
+        self._setup_root_window()
+        self._setup_experience_viewport_window()
+        self._setup_workarea()
 
+        logger.debug("Setup finished")
+
+    def _setup_atoms(self):
         self._utf8_atom = self._display.intern_atom(UTF8_STRING_ATOM)
         for atom_str in SUPPORTED_NET_ATOMS:
             self._net_atoms[atom_str] = self._display.intern_atom(atom_str)
@@ -149,15 +141,18 @@ class FootronWindowManager:
             self._wm_atoms[atom_str] = self._display.intern_atom(atom_str)
         self._xembed_info_atom = self._display.intern_atom("_XEMBED_INFO")
 
+    def _setup_check_window(self):
+        # Presumably X.CopyFromParent here will set this window to use root's depth,
+        # which seems fine. If we have an issue with this somehow, we might need to
+        # mess with the depth parameter, because I just guessed.
+        self._check = self._root.create_window(0, 0, 1, 1, 0, X.CopyFromParent)
+
         self._check.change_property(
             self._net_atoms[NetAtom.WmCheck], Xatom.WINDOW, 32, [self._check.id]
         )
-        self._check.change_property(
-            self._net_atoms[NetAtom.WmName],
-            Xatom.STRING,
-            8,
-            WM_NAME.encode("utf-8"),
-        )
+        self._set_window_title(self._check, WM_NAME)
+
+    def _setup_root_window(self):
         self._root.change_property(
             self._net_atoms[NetAtom.WmCheck], Xatom.WINDOW, 32, [self._check.id]
         )
@@ -176,9 +171,39 @@ class FootronWindowManager:
             32,
             list(self._net_atoms.values()),
         )
-        self._setup_workarea()
 
-        logger.debug("Setup finished")
+    def _setup_experience_viewport_window(self):
+        black_pixel = self._screen.default_colormap.alloc_named_color("black").pixel
+        # This exists to force all experience windows into a single window that can be
+        #  captured.
+        self._experience_viewport: Window = self._root.create_window(
+            *LAYOUT_GEOMETRY[None][self._display_scenario](
+                layout=self._layout, width=self._width, height=self._height
+            ),
+            X.CopyFromParent,
+            self._screen.root_depth,
+            X.InputOutput,
+            background_pixel=black_pixel,
+            # TODO: Not sure if we need this
+            override_redirect=True,
+        )
+        # Register this as a real window
+        self._experience_viewport.change_property(
+            self._wm_atoms[WmAtom.State],
+            self._wm_atoms[WmAtom.State],
+            32,
+            [Xutil.NormalState],
+        )
+        # Can't remember what this does, but I think it's important
+        self._experience_viewport.change_property(
+            self._xembed_info_atom, self._xembed_info_atom, 32, [0, 1]
+        )
+        # Set name of experience parent
+        self._set_window_title(
+            self._experience_viewport, EXPERIENCE_VIEWPORT_WINDOW_NAME
+        )
+
+        self._experience_viewport.map()
 
     def _setup_workarea(self):
         # Chromium (at least) appears to need this to stop overscaling when going
@@ -195,6 +220,9 @@ class FootronWindowManager:
 
     def _update_viewport_geometry(self, after: Optional[datetime.datetime]):
         windows_resized = 0
+        self._scale_experience_viewport_window(
+            LAYOUT_GEOMETRY[None][self._display_scenario](layout=self._layout)
+        )
         for client in self._clients.values():
             # TODO: This is hardcoded, should use an include list
             if client.type not in [None, ClientType.Loader]:
@@ -242,7 +270,12 @@ class FootronWindowManager:
             )
             return
 
-        if not attrs or attrs.override_redirect or ev.window.id in self._client_parents:
+        if (
+            not attrs
+            or attrs.override_redirect
+            or ev.window.id in self._client_parents
+            or ev.window.id == self._experience_viewport
+        ):
             return
 
         self._manage_new_window(ev.window)
@@ -278,7 +311,7 @@ class FootronWindowManager:
 
         if client.parent:
             self._client_parents.remove(client.parent.id)
-            client.parent.unmap()
+            client.parent.destroy()
         del self._clients[window_id]
         self._set_ewmh_clients_list()
         self._preserve_window_order()
@@ -365,6 +398,8 @@ class FootronWindowManager:
             if client.type == ClientType.Placard:
                 logger.info("Matched existing window as placard")
                 if client.parent:
+                    # Note that this will also move an existing placard outside of the
+                    # experience parent
                     logger.debug(
                         "Existing placard window had parent, reparenting to root"
                     )
@@ -561,7 +596,7 @@ class FootronWindowManager:
                 X.InputOutput,
                 background_pixel=black_pixel,
                 # TODO: Not sure if we need this
-                override_redirect=True
+                override_redirect=True,
             )
             window.reparent(parent, 0, 0)
             parent.map()
@@ -583,6 +618,9 @@ class FootronWindowManager:
             floating,
             datetime.datetime.now(),
         )
+
+        if client_type is None:
+            client.parent.reparent(self._experience_viewport, 0, 0)
 
         if client_type == ClientType.Placard:
             logger.info("Matched new placard window")
@@ -689,6 +727,24 @@ class FootronWindowManager:
             self._net_atoms[NetAtom.ClientList], Xatom.WINDOW, 32, list(new_clients)
         )
 
+    def _scale_experience_viewport_window(self, geometry: WindowGeometry):
+        parent_id = self._experience_viewport.id
+        if self._debug_logging:
+            logger.debug(
+                f"Attempting to experience parent (id {hex(parent_id)}) to new geometry:"
+            )
+            debug_log_window_geometry(logger.debug, geometry)
+
+        try:
+            self._experience_viewport.configure(
+                x=geometry.x,
+                y=geometry.y,
+                width=max(geometry.width, 1),
+                height=max(geometry.height, 1),
+            )
+        except Exception:
+            logger.exception(f"Error while scaling experience parent to {geometry}")
+
     def scale_client(self, client, geometry: WindowGeometry):
         if self._debug_logging:
             logger.debug(
@@ -696,19 +752,20 @@ class FootronWindowManager:
             )
             debug_log_window_geometry(logger.debug, geometry)
 
+        in_experience_viewport = client.in_experience_viewport
         try:
+            x = 0 if in_experience_viewport else geometry.x
+            y = 0 if in_experience_viewport else geometry.y
             if client.parent:
-                x = 0
-                y = 0
                 client.parent.configure(
-                    x=geometry.x,
-                    y=geometry.y,
+                    x=x,
+                    y=x,
                     width=max(geometry.width, 1),
                     height=max(geometry.height, 1),
                 )
-            else:
-                x = geometry.x
-                y = geometry.y
+                # This will make sure we place the child at the origin of the parent
+                x = 0
+                y = 0
 
             client.target.configure(
                 x=x,
@@ -720,7 +777,9 @@ class FootronWindowManager:
             # flickering
             self._preserve_window_order()
         except Exception:
-            logger.exception(f"Error while scaling client {hex(client.window.id)}")
+            logger.exception(
+                f"Error while scaling client {hex(client.window.id)} to {geometry}"
+            )
 
     def _window_title(self, window: Window):
         """Simplify dealing with _NET_WM_NAME (UTF-8) vs. WM_NAME (legacy)"""
@@ -741,6 +800,20 @@ class FootronWindowManager:
         except error.XError:
             logger.exception("Error while getting window title")
             return None
+
+    def _set_window_title(self, window: Window, title: str):
+        """Set the window title to the given string"""
+        if self._debug_logging:
+            logger.debug(f"Setting title of window {hex(window.id)}to {title}")
+
+        try:
+            # Set both _NET_WM_NAME and the older WM_NAME
+            for atom in (self._net_atoms[NetAtom.WmName], self._wm_atoms[WmAtom.Name]):
+                window.change_text_property(atom, self._utf8_atom, title)
+        except Exception:
+            logger.exception(
+                f"Error while setting title of window {hex(window.id)} to {title}"
+            )
 
     def _handle_message(self, message: Dict):
         message_type = message["type"]

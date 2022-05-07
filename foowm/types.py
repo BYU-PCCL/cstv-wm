@@ -71,6 +71,10 @@ class Client:
 
         return self.parent
 
+    @property
+    def in_experience_viewport(self):
+        return self.type is None or self.type == ClientType.Loader
+
 
 # Apparently python-xlib won't give us access to x and y on the standard
 # WMNormalHints struct. Despite the deprecation notice on XSizeHints in Xutil.h, some

@@ -3,6 +3,7 @@ from .types import NetAtom, WmAtom, ClientType, DisplayScenario, DisplayLayout
 WM_NAME = "foowm"
 
 OFFSCREEN_SOURCE_WINDOW_NAME = "FOOTRON_SOURCE_WINDOW"
+EXPERIENCE_VIEWPORT_WINDOW_NAME = "FOOTRON_EXPERIENCE_VIEWPORT"
 PLACARD_WINDOW_NAME = "FOOTRON_PLACARD"
 LOADER_WINDOW_NAME = "FOOTRON_LOADING"
 # A list of regex patterns for titles of windows that we want to dump offscreen
@@ -82,7 +83,12 @@ PRODUCTION_PLACARD_OFFSETS = {
 }
 
 VIEWPORT_GEOMETRY = {
-    DisplayScenario.Fullscreen: lambda *, width, height, **_: (0, 0, width, height),
+    DisplayScenario.Fullscreen: lambda *, width, height, layout, **_: (
+        PRODUCTION_PLACARD_OFFSETS[layout],
+        0,
+        width,
+        height,
+    ),
     DisplayScenario.Center: lambda *, width, height, layout, **_: (
         ((width - PRODUCTION_DISPLAY_WIDTH) // 2)
         + (PRODUCTION_PLACARD_OFFSETS[layout]),
@@ -103,7 +109,7 @@ LAYOUT_GEOMETRY = {
         DisplayScenario.Fullscreen: lambda *, width, height, **_: (
             0,
             0,
-            PRODUCTION_DISPLAY_WIDTH,
+            width,
             height,
         ),
         DisplayScenario.Center: lambda *, width, height, **_: (
@@ -112,7 +118,7 @@ LAYOUT_GEOMETRY = {
             PRODUCTION_DISPLAY_WIDTH,
             PRODUCTION_HEIGHT,
         ),
-        DisplayScenario.Production: (0, 0, PRODUCTION_PLACARD_WIDTH, PRODUCTION_HEIGHT),
+        DisplayScenario.Production: (0, 0, PRODUCTION_DISPLAY_WIDTH, PRODUCTION_HEIGHT),
     },
     ClientType.Loader: VIEWPORT_GEOMETRY,
     ClientType.OffscreenSource: lambda *, width, geometry, **_: (
