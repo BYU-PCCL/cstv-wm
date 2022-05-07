@@ -221,7 +221,9 @@ class FootronWindowManager:
     def _update_viewport_geometry(self, after: Optional[datetime.datetime]):
         windows_resized = 0
         self._scale_experience_viewport_window(
-            LAYOUT_GEOMETRY[None][self._display_scenario](layout=self._layout)
+            LAYOUT_GEOMETRY[None][self._display_scenario](
+                layout=self._layout, width=self._width, height=self._height
+            )
         )
         for client in self._clients.values():
             # TODO: This is hardcoded, should use an include list
