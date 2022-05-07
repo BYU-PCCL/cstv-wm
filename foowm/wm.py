@@ -630,7 +630,7 @@ class FootronWindowManager:
             datetime.datetime.now(),
         )
 
-        if client_type is None:
+        if client_type in [None, ClientType.Loader]:
             client.parent.reparent(self._experience_viewport, 0, 0)
 
         if client_type == ClientType.Placard:
