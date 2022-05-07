@@ -399,22 +399,20 @@ class FootronWindowManager:
             if self._debug_logging:
                 debug_value_change(logger.debug, "type", old_type, client.type)
 
-            if client.type == ClientType.Placard:
-                logger.info("Matched existing window as placard")
+            if client.type in [ClientType.Placard, ClientType.OffscreenSource]:
+                if client.type == ClientType.Placard:
+                    logger.debug("Matched existing window as placard")
+                    self._placard = client
+                else:
+                    logger.debug("Matched existing window as offscreen source")
                 if client.parent:
                     # Note that this will also move an existing placard outside of the
                     # experience parent
-                    logger.debug(
-                        "Existing placard window had parent, reparenting to root"
-                    )
-                    client.ignore_unmaps += 1
-                    client.target.reparent(self._root, 0, 0)
-                    client.parent.unmap()
-                    self._client_parents.remove(client.parent.id)
-                    client.parent = None
-                    self._display.sync()
-                self._placard = client
+                    self._unparent_client(client)
             elif client.type == ClientType.Loader:
+                logger.info("Matched existing window as loading window")
+                self._loader = client
+            elif client.type == ClientType.OffscreenSource:
                 logger.info("Matched existing window as loading window")
                 self._loader = client
 
@@ -458,6 +456,15 @@ class FootronWindowManager:
             self._net_atoms[NetAtom.ActiveWindow], Xatom.WINDOW, 32, [ev.window.id]
         )
         ev.window.set_input_focus(X.RevertToPointerRoot, X.CurrentTime)
+
+    def _unparent_client(self, client: Client):
+        logger.debug(f"Unparenting client {hex(client.window.id)}")
+        client.ignore_unmaps += 1
+        client.target.reparent(self._root, 0, 0)
+        client.parent.unmap()
+        self._client_parents.remove(client.parent.id)
+        client.parent = None
+        self._display.sync()
 
     def _manage_new_window(self, window: Window):
         if window.id in self._clients:
