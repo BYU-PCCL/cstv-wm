@@ -59,18 +59,6 @@ class Client:
     # This is literally how openbox handles reparenting unmap requests
     ignore_unmaps: int = 0
 
-    # @vinhowe: Note that this is basically a workaround to allow us not to reparent the
-    # placard, only because python-xlib doesn't appear to have explicit support for
-    # everything we need to create new windows with transparent backgrounds.
-    # The "right" way to solve this would be to figure out how create transparent window
-    # backgrounds and just reparent everything.
-    @property
-    def window(self):
-        if not self.parent:
-            return self.target
-
-        return self.parent
-
     @property
     def in_experience_viewport(self):
         return self.type is None or self.type == ClientType.Loader

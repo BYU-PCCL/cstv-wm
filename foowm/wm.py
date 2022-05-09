@@ -8,6 +8,7 @@ from Xlib.display import Display
 from Xlib import X, error, Xatom, Xutil
 from Xlib.protocol.display import Screen
 from Xlib.protocol import event
+from Xlib.xobject.colormap import Colormap
 from Xlib.xobject.drawable import Window
 
 from .constants import (
@@ -47,6 +48,7 @@ class FootronWindowManager:
         self._root: Window
         self._check: Window
         self._experience_viewport: Window
+        self._true_color_colormap: Colormap
         self._xembed_info_atom: int
         self._utf8_atom: int
         self._width: int
@@ -82,6 +84,10 @@ class FootronWindowManager:
         return self._layout
 
     def set_layout(self, layout: DisplayLayout, after: Optional[datetime.datetime]):
+        # We could use @property.setter here but PEP 8 recommends against using it
+        # when the function has side effects or does anything expensive:
+        # https://peps.python.org/pep-0008/#designing-for-inheritance
+        # (see notes on bullet 3)
         if layout == self._layout:
             return
 
@@ -126,6 +132,7 @@ class FootronWindowManager:
         )
 
         self._setup_atoms()
+        self._setup_colors()
         self._setup_check_window()
         self._setup_root_window()
         self._setup_experience_viewport_window()
@@ -140,6 +147,26 @@ class FootronWindowManager:
         for atom_str in SUPPORTED_WM_ATOMS:
             self._wm_atoms[atom_str] = self._display.intern_atom(atom_str)
         self._xembed_info_atom = self._display.intern_atom("_XEMBED_INFO")
+
+    def _setup_colors(self):
+        try:
+            self._true_color_visual_id = next(
+                v
+                for v in next(
+                    d for d in self._display.screen().allowed_depths if d["depth"] == 32
+                )["visuals"]
+                if v["visual_class"] == X.TrueColor
+            )["visual_id"]
+        except StopIteration:
+            logger.critical(
+                "Couldn't find 32 bit depth X visual, can't create transparent windows",
+                exc_info=True,
+            )
+            raise
+
+        self._true_color_colormap = self._root.create_colormap(
+            self._true_color_visual_id, X.AllocNone
+        )
 
     def _setup_check_window(self):
         # Presumably X.CopyFromParent here will set this window to use root's depth,
@@ -173,19 +200,12 @@ class FootronWindowManager:
         )
 
     def _setup_experience_viewport_window(self):
-        black_pixel = self._screen.default_colormap.alloc_named_color("black").pixel
         # This exists to force all experience windows into a single window that can be
         #  captured.
-        self._experience_viewport: Window = self._root.create_window(
+        self._experience_viewport: Window = self._create_parent_window(
             *LAYOUT_GEOMETRY[None][self._display_scenario](
                 layout=self._layout, width=self._width, height=self._height
-            ),
-            X.CopyFromParent,
-            self._screen.root_depth,
-            X.InputOutput,
-            background_pixel=black_pixel,
-            # TODO: Not sure if we need this
-            override_redirect=True,
+            )
         )
         # Register this as a real window
         self._experience_viewport.change_property(
@@ -218,6 +238,23 @@ class FootronWindowManager:
             ),
         )
 
+    def _create_parent_window(self, x, y, width, height) -> Window:
+        return self._root.create_window(
+            x,
+            y,
+            width,
+            height,
+            0,
+            32,
+            X.InputOutput,
+            self._true_color_visual_id,
+            background_pixel=0,
+            border_pixel=0,
+            colormap=self._true_color_colormap,
+            # TODO: Not sure if we need this
+            override_redirect=True,
+        )
+
     def _update_viewport_geometry(self, after: Optional[datetime.datetime]):
         windows_resized = 0
         self._scale_experience_viewport_window(
@@ -228,8 +265,7 @@ class FootronWindowManager:
             )
         )
         for client in self._clients.values():
-            # TODO: This is hardcoded, should use an include list
-            if client.type not in [None, ClientType.Loader]:
+            if not client.in_experience_viewport:
                 continue
             if after and client.created_at <= after:
                 continue
@@ -247,14 +283,14 @@ class FootronWindowManager:
             return
 
         logger.debug("Raising placard...")
-        self._placard.window.raise_window()
+        self._placard.parent.raise_window()
 
     def _raise_loader(self):
         if not self._loader:
             return
 
         logger.debug("Raising loading window...")
-        self._loader.window.raise_window()
+        self._loader.parent.raise_window()
 
     def _preserve_window_order(self):
         self._raise_loader()
@@ -313,9 +349,9 @@ class FootronWindowManager:
             logger.info("Loading window is closing")
             self._loader = None
 
-        if client.parent:
-            self._client_parents.remove(client.parent.id)
-            client.parent.destroy()
+        self._client_parents.remove(client.parent.id)
+        client.parent.destroy()
+
         del self._clients[window_id]
         self._set_ewmh_clients_list()
         self._preserve_window_order()
@@ -387,50 +423,58 @@ class FootronWindowManager:
             return
 
         if ev.atom in [self._net_atoms[NetAtom.WmName], self._wm_atoms[WmAtom.Name]]:
-            logger.debug(f"Handling title update on window {hex(client.window.id)}:")
+            logger.debug(f"Handling title update on window {hex(client.target.id)}:")
 
             old_title = client.title
             client.title = self._window_title(client.target)
             if self._debug_logging:
-                debug_value_change(logger.debug, "title", old_title, client.title)
+                debug_value_change(
+                    logger.debug,
+                    f"title of window {hex(client.target.id)}",
+                    old_title,
+                    client.title,
+                )
 
             old_type = client.type
             client.type = self._client_type_from_title(client.title)
             if self._debug_logging:
-                debug_value_change(logger.debug, "type", old_type, client.type)
+                debug_value_change(
+                    logger.debug,
+                    f"type of window {hex(client.target.id)}",
+                    old_type,
+                    client.type,
+                )
+
+            if old_type == client.type:
+                # Everything after this point assumes that the client type has changed
+                return
+
+            client.geometry = self._client_geometry(
+                client.desired_geometry, client.type, client.floating
+            )
+            self.scale_client(client, client.geometry)
 
             if client.type in [ClientType.Placard, ClientType.OffscreenSource]:
                 if client.type == ClientType.Placard:
-                    logger.debug("Matched existing window as placard")
                     self._placard = client
-                else:
-                    logger.debug("Matched existing window as offscreen source")
-                if client.parent:
-                    # Note that this will also move an existing placard outside of the
-                    # experience parent
-                    self._unparent_client(client)
-            elif client.type == ClientType.Loader:
-                logger.info("Matched existing window as loading window")
-                self._loader = client
-            elif client.type == ClientType.OffscreenSource:
-                logger.info("Matched existing window as loading window")
-                self._loader = client
-
-            if old_type != client.type:
-                client.geometry = self._client_geometry(
-                    client.desired_geometry, client.type, client.floating
-                )
-                self.scale_client(client, client.geometry)
+                # Move client outside of the experience parent viewport if that's
+                # where it was
+                logger.debug("reparenting ")
+                self._reparent_parent(client, self._root)
+            elif client.type in [None, ClientType.Loader, ClientType.OffscreenSource]:
+                if client.type == ClientType.Loader:
+                    self._loader = client
+                self._reparent_parent(client, self._experience_viewport)
             return
 
         if ev.atom == self._wm_atoms[WmAtom.NormalHints]:
-            wm_normal_hints = self._extended_wm_normal_hints(client.window)
+            wm_normal_hints = self._extended_wm_normal_hints(client.target)
             if not wm_normal_hints:
                 return
 
             if self._debug_logging:
                 logger.debug(
-                    f"Received size hints update on window {hex(client.window.id)}:"
+                    f"Received size hints update on window {hex(client.target.id)}:"
                 )
                 debug_log_size_hints(logger.debug, wm_normal_hints)
                 client.desired_geometry = WindowGeometry(
@@ -443,7 +487,7 @@ class FootronWindowManager:
             return
 
         if ev.atom == self._net_atoms[NetAtom.WmState]:
-            logger.debug(f"Received _NET_WM_STATE update on {hex(client.window.id)}:")
+            logger.debug(f"Received _NET_WM_STATE update on {hex(client.target.id)}:")
             # If client decided to change window state, just try to force it back
             self.scale_client(client, client.geometry)
             return
@@ -457,13 +501,11 @@ class FootronWindowManager:
         )
         ev.window.set_input_focus(X.RevertToPointerRoot, X.CurrentTime)
 
-    def _unparent_client(self, client: Client):
-        logger.debug(f"Unparenting client {hex(client.window.id)}")
-        client.ignore_unmaps += 1
-        client.target.reparent(self._root, 0, 0)
-        client.parent.unmap()
-        self._client_parents.remove(client.parent.id)
-        client.parent = None
+    def _reparent_parent(self, client: Client, new_parent: Window):
+        logger.debug(
+            f"Reparenting parent of client {hex(client.target.id)} to window {hex(new_parent.id)}"
+        )
+        client.parent.reparent(new_parent, 0, 0)
         self._display.sync()
 
     def _manage_new_window(self, window: Window):
@@ -592,32 +634,12 @@ class FootronWindowManager:
         )
         window.change_attributes(override_redirect=True)
 
-        colormap = self._screen.default_colormap
-        black_pixel = colormap.alloc_named_color("black").pixel
-
-        parent = None
-        if client_type != ClientType.Placard:
-            parent = self._root.create_window(
-                0,
-                0,
-                1,
-                1,
-                X.CopyFromParent,
-                self._screen.root_depth,
-                X.InputOutput,
-                background_pixel=black_pixel,
-                # TODO: Not sure if we need this
-                override_redirect=True,
-            )
-            window.reparent(parent, 0, 0)
-            parent.map()
-            self._client_parents.add(parent.id)
-            logger.debug(
-                f"ID of parent for window {hex(window.id)} is {hex(parent.id)}"
-            )
-            self._display.sync()
-        else:
-            logger.debug("Not creating parent for placard client")
+        parent = self._create_parent_window(0, 0, 1, 1)
+        window.reparent(parent, 0, 0)
+        parent.map()
+        self._client_parents.add(parent.id)
+        logger.debug(f"ID of parent for window {hex(window.id)} is {hex(parent.id)}")
+        self._display.sync()
 
         client = Client(
             window,
@@ -631,7 +653,7 @@ class FootronWindowManager:
         )
 
         if client_type in [None, ClientType.Loader]:
-            client.parent.reparent(self._experience_viewport, 0, 0)
+            self._reparent_parent(client, self._experience_viewport)
 
         if client_type == ClientType.Placard:
             logger.info("Matched new placard window")
@@ -658,7 +680,7 @@ class FootronWindowManager:
             logger.debug(
                 f"Attempting to clear viewport using custom include list: {include}"
             )
-        for key, client in list(self._clients.items()):
+        for client in list(self._clients.values()):
             if client.type not in clear_types:
                 continue
             if client.created_at > before:
@@ -675,7 +697,7 @@ class FootronWindowManager:
         self._preserve_window_order()
 
     @staticmethod
-    def _client_type_from_title(title: str) -> Optional[ClientType]:
+    def _client_type_from_title(title: Optional[str]) -> Optional[ClientType]:
         if not title:
             return None
 
@@ -729,7 +751,9 @@ class FootronWindowManager:
         )
 
     def _set_ewmh_clients_list(self):
-        new_clients = map(lambda a: a.window.id, self._clients.values())
+        # TODO: Unclear if this list should include parents? I'm guessing not since
+        #  they don't really provide that much information.
+        new_clients = map(lambda a: a.target.id, self._clients.values())
         logger.debug(
             f"Updating _NET_CLIENT_LIST on root window: {list(map(hex, new_clients))}"
         )
@@ -759,42 +783,38 @@ class FootronWindowManager:
     def scale_client(self, client, geometry: WindowGeometry):
         if self._debug_logging:
             logger.debug(
-                f"Attempting to scale window {hex(client.window.id)} to new geometry:"
+                f"Attempting to scale window {hex(client.target.id)} to new geometry:"
             )
             debug_log_window_geometry(logger.debug, geometry)
 
         in_experience_viewport = client.in_experience_viewport
+        width = max(geometry.width, 1)
+        height = max(geometry.height, 1)
         try:
-            x = 0 if in_experience_viewport else geometry.x
-            y = 0 if in_experience_viewport else geometry.y
-            if client.parent:
-                client.parent.configure(
-                    x=x,
-                    y=x,
-                    width=max(geometry.width, 1),
-                    height=max(geometry.height, 1),
-                )
-                # This will make sure we place the child at the origin of the parent
-                x = 0
-                y = 0
-
+            client.parent.configure(
+                x=0 if in_experience_viewport else geometry.x,
+                y=0 if in_experience_viewport else geometry.y,
+                width=width,
+                height=height,
+            )
             client.target.configure(
-                x=x,
-                y=y,
-                width=max(geometry.width, 1),
-                height=max(geometry.height, 1),
+                x=0,
+                y=0,
+                width=width,
+                height=height,
             )
             # Let preserve_window_order handle display syncing so we don't get any
             # flickering
             self._preserve_window_order()
         except Exception:
             logger.exception(
-                f"Error while scaling client {hex(client.window.id)} to {geometry}"
+                f"Error while scaling client {hex(client.target.id)} to {geometry}"
             )
 
     def _window_title(self, window: Window):
         """Simplify dealing with _NET_WM_NAME (UTF-8) vs. WM_NAME (legacy)"""
         try:
+            title = None
             for atom in (self._net_atoms[NetAtom.WmName], self._wm_atoms[WmAtom.Name]):
                 try:
                     title = window.get_full_property(atom, 0)
