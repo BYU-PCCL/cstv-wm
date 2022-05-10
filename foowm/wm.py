@@ -461,7 +461,7 @@ class FootronWindowManager:
                 # where it was
                 logger.debug("reparenting ")
                 self._reparent_parent(client, self._root)
-            elif client.type in [None, ClientType.Loader, ClientType.OffscreenSource]:
+            elif client.type in [None, ClientType.Loader]:
                 if client.type == ClientType.Loader:
                     self._loader = client
                 self._reparent_parent(client, self._experience_viewport)
