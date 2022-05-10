@@ -52,7 +52,8 @@ class Client:
     parent: Window
     geometry: WindowGeometry
     desired_geometry: WindowGeometry
-    title: str
+    # It's totally possible not to have a title
+    title: Optional[str]
     type: Optional[ClientType]
     floating: bool
     created_at: datetime.datetime
