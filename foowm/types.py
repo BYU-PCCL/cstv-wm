@@ -19,13 +19,14 @@ class ClientType(enum.Enum):
     OffscreenSource = "offscreen_source"
     # Things we pile up offscreen because we don't want to see them.
     # @vinhowe: I call this a "hack" because we should try to eliminate all cases where
-    # we need this behavior. Matching titles for windows we don't we control is fraught
+    # we need this behavior. Matching titles for windows we don't control is fraught
     # because all it takes is an application update for this hack to stop working.
     OffscreenHack = "offscreen_hack"
 
 
 class DisplayLayout(enum.Enum):
     """Dynamic layout of windows specified at runtime by controller"""
+
     Full = "full"
     Wide = "wide"
     Hd = "hd"
@@ -33,6 +34,7 @@ class DisplayLayout(enum.Enum):
 
 class DisplayScenario(enum.Enum):
     """Static layout of entire display set once at startup"""
+
     Fullscreen = "fullscreen"
     Center = "center"
     Production = "production"
@@ -52,24 +54,17 @@ class Client:
     parent: Window
     geometry: WindowGeometry
     desired_geometry: WindowGeometry
-    title: str
+    # It's totally possible not to have a title
+    title: Optional[str]
     type: Optional[ClientType]
     floating: bool
     created_at: datetime.datetime
     # This is literally how openbox handles reparenting unmap requests
     ignore_unmaps: int = 0
 
-    # @vinhowe: Note that this is basically a workaround to allow us not to reparent the
-    # placard, only because python-xlib doesn't appear to have explicit support for
-    # everything we need to create new windows with transparent backgrounds.
-    # The "right" way to solve this would be to figure out how create transparent window
-    # backgrounds and just reparent everything.
     @property
-    def window(self):
-        if not self.parent:
-            return self.target
-
-        return self.parent
+    def in_experience_viewport(self):
+        return self.type is None or self.type == ClientType.Loader
 
 
 # Apparently python-xlib won't give us access to x and y on the standard
