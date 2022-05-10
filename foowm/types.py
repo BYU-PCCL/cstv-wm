@@ -19,13 +19,14 @@ class ClientType(enum.Enum):
     OffscreenSource = "offscreen_source"
     # Things we pile up offscreen because we don't want to see them.
     # @vinhowe: I call this a "hack" because we should try to eliminate all cases where
-    # we need this behavior. Matching titles for windows we don't we control is fraught
+    # we need this behavior. Matching titles for windows we don't control is fraught
     # because all it takes is an application update for this hack to stop working.
     OffscreenHack = "offscreen_hack"
 
 
 class DisplayLayout(enum.Enum):
     """Dynamic layout of windows specified at runtime by controller"""
+
     Full = "full"
     Wide = "wide"
     Hd = "hd"
@@ -33,6 +34,7 @@ class DisplayLayout(enum.Enum):
 
 class DisplayScenario(enum.Enum):
     """Static layout of entire display set once at startup"""
+
     Fullscreen = "fullscreen"
     Center = "center"
     Production = "production"
