@@ -459,7 +459,6 @@ class FootronWindowManager:
                     self._placard = client
                 # Move client outside of the experience parent viewport if that's
                 # where it was
-                logger.debug("reparenting ")
                 self._reparent_parent(client, self._root)
             elif client.type in [None, ClientType.Loader]:
                 if client.type == ClientType.Loader:
