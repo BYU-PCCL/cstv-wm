@@ -505,7 +505,7 @@ class FootronWindowManager:
         logger.debug(
             f"Reparenting parent of client {hex(client.target.id)} to window {hex(new_parent.id)}"
         )
-        client.parent.reparent(new_parent, 0, 0)
+        client.parent.reparent(new_parent, client.geometry.x, client.geometry.y)
         self._display.sync()
 
     def _manage_new_window(self, window: Window):
